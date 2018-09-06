@@ -43,7 +43,7 @@ from axiom.substore import SubStore
 
 VERBOSE = False
 
-SITE_SCHEDULER = u"Site Scheduler"
+SITE_SCHEDULER = "Site Scheduler"
 
 
 class TimedEventFailureLog(Item):

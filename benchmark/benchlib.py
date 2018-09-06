@@ -8,7 +8,7 @@ from itertools import count
 from axiom.item import Item
 from axiom.attributes import integer
 
-typeNameCounter = count(0).next
+typeNameCounter = count(0).__next__
 
 def itemTypeWithSomeAttributes(attributeTypes):
     """
