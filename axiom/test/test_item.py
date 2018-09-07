@@ -403,7 +403,7 @@ class CheckpointTestCase(TestCase):
         def checkpoint(item):
             self.checkpointed.append(item)
 
-        self.originalCheckpoint = TestItem.checkpoint.__func__
+        self.originalCheckpoint = TestItem.checkpoint
         TestItem.checkpoint = checkpoint
 
     def tearDown(self):
