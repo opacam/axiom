@@ -98,7 +98,7 @@ class Status(usage.Options, PIDMixin):
 class Start(twistd.ServerOptions):
     run = staticmethod(twistd.run)
 
-    def subCommands():
+    def subCommands(self):
         raise AttributeError()
 
     subCommands = property(subCommands)
@@ -129,25 +129,25 @@ class Start(twistd.ServerOptions):
             args.extend(['--journal-mode', store.journalMode.encode('ascii')])
         return args
 
-    def parseOptions(self, args):
-        if "--help" in args:
+    def parseOptions(self, options=None):
+        if "--help" in options:
             self.opt_help()
         else:
             # If a reactor is being selected, it must be done before the store
             # is opened, since that may execute arbitrary application code
             # which may in turn install the default reactor.
-            for index, arg in enumerate(args):
+            for index, arg in enumerate(options):
                 if arg in ("--reactor", "-r"):
-                    shortName = args[index + 1]
-                    del args[index:index + 2]
+                    shortName = options[index + 1]
+                    del options[index:index + 2]
                     self.opt_reactor(shortName)
                     break
                 elif arg.startswith("--reactor="):
                     shortName = arg.split("=")[1]
-                    del args[index]
+                    del options[index]
                     self.opt_reactor(shortName)
                     break
-            sys.argv[1:] = self.getArguments(self.parent.getStore(), args)
+            sys.argv[1:] = self.getArguments(self.parent.getStore(), options)
             self.run()
 
 
@@ -224,6 +224,6 @@ class Options(usage.Options):
 def main(argv=None):
     o = Options()
     try:
-        o.parseOptions(argv)
+        o.parseOptions(options=argv)
     except usage.UsageError as e:
         raise SystemExit(str(e))

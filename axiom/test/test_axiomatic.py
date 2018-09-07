@@ -108,7 +108,7 @@ class StartTests(TestCase):
         else:
             pidfileArg = ["--pidfile", run.child("axiomatic.pid").path]
         restArg = [
-            "axiomatic-start", "--dbdir", dbdir.path, "--journal-mode", "WAL"]
+            "axiomatic-start", "--dbdir", dbdir.path, "--journal-mode", b"WAL"]
 
         self.assertEqual(
             start.getArguments(store, []),
