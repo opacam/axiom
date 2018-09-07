@@ -69,7 +69,7 @@ def _mkdirIfNotExists(dirname):
 
 
 @implementer(iaxiom.IAtomicFile)
-class AtomicFile():
+class AtomicFile:
     """I am a file which is moved from temporary to permanent storage when it
     is closed.
 
@@ -89,7 +89,7 @@ class AtomicFile():
         self._destpath = destpath
         self.f = open(tempname, 'w+b')
         self.name = self.f.name
-        self.finalpath = self.f.finalpath
+        self.finalpath = self.f.name
 
     def close(self):
         """
@@ -100,7 +100,7 @@ class AtomicFile():
         """
         now = time.time()
         try:
-            self.f.close(self)
+            self.f.close()
             _mkdirIfNotExists(self._destpath.dirname())
             self.finalpath = self._destpath
             os.rename(self.name, self.finalpath.path)
@@ -111,6 +111,10 @@ class AtomicFile():
 
     def abort(self):
         os.unlink(self.name)
+
+    def write(self, data):
+        self.f.write(data)
+
 
 # tag for optional argument to getItemByID default
 _noItem = object()

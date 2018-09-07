@@ -26,10 +26,10 @@ class InStoreFilesTest(unittest.TestCase):
         Shared part of file creation tests.
         """
         f = s.newFile('test', 'whatever.txt')
-        f.write('crap')
+        f.write(b'crap')
 
         def cb(fpath):
-            self.assertEqual(fpath.open().read(), 'crap')
+            self.assertEqual(fpath.open().read(), b'crap')
 
         return f.close().addCallback(cb)
 

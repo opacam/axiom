@@ -7,7 +7,6 @@ with open("axiom/_version.py", "rt") as f:
     version = versionPattern.search(f.read()).group(1)
 
 
-
 class InstallAndRegenerate(Install):
     def run(self):
         """
@@ -17,12 +16,11 @@ class InstallAndRegenerate(Install):
         _regenerateCache()
 
 
-
 def _regenerateCache():
     from twisted import plugin
     from axiom import plugins
-    list(plugin.getPlugins(plugin.IPlugin)) # Twisted
-    list(plugin.getPlugins(plugin.IPlugin, plugins)) # Axiom
+    list(plugin.getPlugins(plugin.IPlugin))  # Twisted
+    list(plugin.getPlugins(plugin.IPlugin, plugins))  # Axiom
 
 
 setup(
@@ -36,11 +34,14 @@ setup(
 
     install_requires=[
         "Twisted>=13.2.0",
-        "Epsilon>=0.7.0"
+        "Epsilon>=0.7.3"
     ],
     extras_require={
         'test': ['hypothesis[datetime]>=2.0.0,<3.0.0'],
         },
+    dependency_links=[
+        'git+git://github.com/opacam/epsilon@python3#egg=Epsilon-0.7.3',
+    ],
     packages=find_packages() + ['twisted.plugins'],
     scripts=['bin/axiomatic'],
     cmdclass={
@@ -57,8 +58,5 @@ setup(
         "Intended Audience :: Developers",
         "License :: OSI Approved :: MIT License",
         "Programming Language :: Python",
-        "Programming Language :: Python :: 2",
-        "Programming Language :: Python :: 2.6",
-        "Programming Language :: Python :: 2.7",
-        "Programming Language :: Python :: 2 :: Only",
+        "Programming Language :: Python :: 3 :: Only",
         "Topic :: Database"])
