@@ -104,8 +104,8 @@ class CrossTransactionIteration(TestCase):
         self.assertEqual(qc.measure(g.__next__), oneunit)  # 6
 
         # one more sanity check - we're at the end.
-        self.assertEqual(g.next().mainColumn, 7)
-        self.assertEqual(g.next().mainColumn, 8)
+        self.assertEqual(g.__next__().mainColumn, 7)
+        self.assertEqual(g.__next__().mainColumn, 8)
         self.assertEqual(list(g), [])
 
     def test_storeIDTiebreaker(self):
