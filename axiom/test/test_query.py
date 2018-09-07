@@ -1,15 +1,16 @@
-
-import operator, random
+import operator
+import random
 
 from twisted.trial.unittest import TestCase
-
-from axiom.iaxiom import IComparison, IColumn
-from axiom.store import Store, ItemQuery, MultipleItemQuery
-from axiom.item import Item, Placeholder
 
 from axiom import errors
 from axiom.attributes import (
     reference, text, bytes, integer, AND, OR, TableOrderComparisonWrapper)
+from axiom.iaxiom import IComparison, IColumn
+from axiom.item import Item, Placeholder
+from axiom.store import Store, ItemQuery, \
+    MultipleItemQuery
+
 
 class A(Item):
     schemaVersion = 1
@@ -26,11 +27,13 @@ class B(Item):
     cref = reference()
     name = text(indexed=True)
 
+
 class C(Item):
     schemaVersion = 1
     typeName = 'c'
 
     name = text(indexed=True)
+
 
 class D(Item):
     schemaVersion = 1
@@ -40,6 +43,7 @@ class D(Item):
     two = bytes()
     three = bytes()
     four = text()
+
 
 class E(Item):
     schemaVersion = 1
@@ -77,7 +81,6 @@ class BasicQuery(TestCase):
                 B.getTableName(s)))
         self.assertEqual(comparison.getArgs(s), [])
 
-
     def test_leftHandStoreIDComparison(self):
         """
         Test that a StoreID column on the left-hand side of an equality test
@@ -93,7 +96,6 @@ class BasicQuery(TestCase):
                 A.getTableName(s)))
         self.assertEqual(comparison.getArgs(s), [])
 
-
     def test_simplestQuery(self):
         """
         Test that an ItemQuery with no comparison, sorting, or limit generates
@@ -106,7 +108,6 @@ class BasicQuery(TestCase):
             sql,
             'SELECT * FROM %s' % (A.getTableName(s),))
         self.assertEqual(args, [])
-
 
     def test_simpleIntegerComparison(self):
         """
@@ -123,7 +124,6 @@ class BasicQuery(TestCase):
                 E.getTableName(s)))
         self.assertEqual(args, [0])
 
-
     def test_simpleReferenceComparison(self):
         """
         Test that an ItemQuery with a single attribute comparison on a
@@ -139,7 +139,6 @@ class BasicQuery(TestCase):
                 A.getTableName(s),
                 A.getTableName(s)))
         self.assertEqual(args, [])
-
 
     def test_reversedReferenceComparison(self):
         """
@@ -158,7 +157,6 @@ class BasicQuery(TestCase):
                 A.getTableName(s)))
         self.assertEqual(args, [])
 
-
     def test_unionComparison(self):
         """
         Test that an ItemQuery with two comparisons joined with an L{AND}
@@ -172,7 +170,7 @@ class BasicQuery(TestCase):
             sql,
             'SELECT * FROM %s, %s, %s '
             'WHERE ((%s.[reftoc] = %s.oid) AND '
-                   '(%s.[cref] = %s.oid))' % (
+            '(%s.[cref] = %s.oid))' % (
                 A.getTableName(s),
                 B.getTableName(s),
                 C.getTableName(s),
@@ -181,7 +179,6 @@ class BasicQuery(TestCase):
                 B.getTableName(s),
                 C.getTableName(s)))
         self.assertEqual(args, [])
-
 
     def testBasicQuery(self):
         s = Store()
@@ -226,7 +223,6 @@ class BasicQuery(TestCase):
 
         s.transact(entesten)
         s.close()
-
 
     def testStringQueries(self):
         s = Store()
@@ -301,9 +297,9 @@ class BasicQuery(TestCase):
         s.transact(createAndStuff)
         s.close()
 
-
     def testAggregateQueries(self):
         s = Store()
+
         def entesten():
             self.assertEqual(s.query(E).count(), 0)
             self.assertEqual(s.query(E).getColumn("amount").sum(), 0)
@@ -316,42 +312,49 @@ class BasicQuery(TestCase):
             self.assertEqual(q, 2)
             q = s.sum(E.amount, E.name == 'widgets')
             self.assertEqual(q, 100)
+
         s.transact(entesten)
         s.close()
 
     def testAttributeQueries(self):
         s = Store()
+
         def entesten():
             E(store=s, name='b', amount=456)
             E(store=s, name='a', amount=123)
             E(store=s, name='c', amount=789)
-            self.assertEqual(list(s.query(E, sort=E.name.ascending).getColumn("amount")),
-                              [123, 456, 789])
+            self.assertEqual(
+                list(s.query(E, sort=E.name.ascending).getColumn("amount")),
+                [123, 456, 789])
 
         s.transact(entesten)
         s.close()
 
     def testAttributeQueryCount(self):
         s = Store()
+
         def entesten():
             E(store=s, name='a', amount=123)
             E(store=s, name='b', amount=456)
             E(store=s, name='c')  # no amount given
             self.assertEqual(s.query(E).getColumn("amount").count(), 2)
+
         s.transact(entesten)
         s.close()
 
     def testAttributeQueryDistinct(self):
         s = Store()
+
         def entesten():
             E(store=s, name='a', amount=123)
             E(store=s, name='b', amount=789)
             E(store=s, name='a', amount=456)
-            self.assertEqual(list(s.query(E, sort=E.name.ascending).getColumn("name").distinct()),
-                              ["a", "b"])
+            self.assertEqual(list(s.query(E, sort=E.name.ascending).getColumn(
+                "name").distinct()),
+                             ["a", "b"])
+
         s.transact(entesten)
         s.close()
-
 
     def test_distinctQuerySQLiteBug(self):
         """
@@ -367,14 +370,15 @@ class BasicQuery(TestCase):
         Upstream ticket: http://www.sqlite.org/cvstrac/tktview?tn=3236
         """
         s = Store()
+
         def entesten():
             C(store=s, name='a')
             C(store=s, name='b')
             q = s.query(C, C.name != None).getColumn('name').distinct()
             self.assertEqual(sorted(q), ['a', 'b'])
+
         s.transact(entesten)
         s.close()
-
 
     def test_itemQueryDistinct(self):
         """
@@ -382,16 +386,17 @@ class BasicQuery(TestCase):
         duplicate item results.
         """
         s = Store()
+
         def entesten():
             theC = C(store=s, name='it')
             B(store=s, cref=theC)
             B(store=s, cref=theC)
             B(store=s, cref=theC)
             self.assertEqual(list(s.query(C, B.cref == C.storeID).distinct()),
-                              [theC])
+                             [theC])
+
         s.transact(entesten)
         s.close()
-
 
     def test_itemQueryDistinctCount(self):
         """
@@ -399,6 +404,7 @@ class BasicQuery(TestCase):
         distinct item query.
         """
         s = Store()
+
         def entesten():
             for n, name in (2, 'it'), (3, 'indefinite nominative'):
                 theC = C(store=s, name=name)
@@ -407,9 +413,9 @@ class BasicQuery(TestCase):
             self.assertEqual(
                 s.query(C, B.cref == C.storeID).distinct().count(),
                 2)
+
         s.transact(entesten)
         s.close()
-
 
     def test_itemQueryLimitAttribute(self):
         """
@@ -419,7 +425,6 @@ class BasicQuery(TestCase):
         s = Store()
         q = s.query(C, limit=3)
         self.assertEqual(q.limit, 3)
-
 
     def test_itemQueryClone(self):
         """
@@ -433,7 +438,6 @@ class BasicQuery(TestCase):
         self.assertEqual(q2.limit, q1.limit)
         self.assertNotIdentical(q1, q2)
 
-
     def test_itemQueryLimitSetToNone(self):
         """
         L{ItemQuery.cloneQuery} should set the limit attribute back to None when
@@ -446,7 +450,6 @@ class BasicQuery(TestCase):
         self.assertEqual(q1.store, q2.store)
         self.assertEqual(q2.limit, None)
 
-
     def test_itemQueryCloneLimit(self):
         """
         L{ItemQuery} implements L{IQuery} and should provide a 'cloneQuery'
@@ -458,7 +461,6 @@ class BasicQuery(TestCase):
         self.assertEqual(q1.store, q2.store)
         self.assertEqual(q2.limit, 5)
 
-
     def test_itemQueryStoreAttribute(self):
         """
         L{ItemQuery} implements L{IQuery} and should provide a 'store' attribute
@@ -468,7 +470,6 @@ class BasicQuery(TestCase):
         q = s.query(C)
         self.assertEqual(q.store, s)
 
-
     def test_itemQueryDistinctLimitAttribute(self):
         """
         L{_DistinctQuery} implements L{IQuery} and should provide a 'limit'
@@ -477,7 +478,6 @@ class BasicQuery(TestCase):
         s = Store()
         q = s.query(C, limit=3).distinct()
         self.assertEqual(q.limit, 3)
-
 
     def test_itemQueryDistinctClone(self):
         """
@@ -490,7 +490,6 @@ class BasicQuery(TestCase):
         self.assertEqual(q1.store, q2.store)
         self.assertEqual(q2.limit, q1.limit)
 
-
     def test_itemQueryDistinctCloneLimit(self):
         """
         L{_DistinctQuery} implements L{IQuery} and should provide a 'cloneQuery'
@@ -502,7 +501,6 @@ class BasicQuery(TestCase):
         self.assertEqual(q1.store, q2.store)
         self.assertEqual(q2.limit, 5)
 
-
     def test_itemQueryDistinctStoreAttribute(self):
         """
         L{_DistinctQuery} implements L{IQuery} and should provide a 'store' attribute
@@ -512,10 +510,9 @@ class BasicQuery(TestCase):
         q = s.query(C).distinct()
         self.assertEqual(q.store, s)
 
-
-
     def testAttributeQueryMinMax(self):
         s = Store()
+
         def entesten():
             E(store=s, amount=-4)
             E(store=s, amount=10)
@@ -531,7 +528,6 @@ class BasicQuery(TestCase):
             self.assertEqual(s.query(D).getColumn("id").min(default=41), 41)
             self.assertEqual(s.query(D).getColumn("id").max(default=42), 42)
 
-
         s.transact(entesten)
         s.close()
 
@@ -544,7 +540,6 @@ class BasicQuery(TestCase):
         q = s.query(C, limit=3).getColumn('name')
         self.assertEqual(q.limit, 3)
 
-
     def test_attributeQueryClone(self):
         """
         L{AttributeQuery.cloneQuery} should return a new L{AttributeQuery}
@@ -555,7 +550,6 @@ class BasicQuery(TestCase):
         q2 = q1.cloneQuery()
         self.assertEqual(q1.store, q2.store)
         self.assertEqual(q2.limit, q1.limit)
-
 
     def test_attributeQueryCloneLimit(self):
         """
@@ -570,7 +564,6 @@ class BasicQuery(TestCase):
         self.assertEqual(q1.attribute, q2.attribute)
         self.assertEqual(q1.raw, q2.raw)
 
-
     def test_attributeQueryStoreAttribute(self):
         """
         L{AttributeQuery} implements L{IQuery} and should provide a 'store' attribute
@@ -579,7 +572,6 @@ class BasicQuery(TestCase):
         s = Store()
         q = s.query(C).getColumn('name')
         self.assertEqual(q.store, s)
-
 
 
 class MultipleQuery(TestCase):
@@ -593,14 +585,15 @@ class MultipleQuery(TestCase):
         us the right number and type of Items, in a plausible order.
         """
         s = Store()
+
         def entesten():
             for i in range(3):
                 c = C(store=s, name="C.%s" % i)
-                B(store=s, name="B.%s" % (2-i), cref=c)
+                B(store=s, name="B.%s" % (2 - i), cref=c)
 
-            query = s.query( (B, C),
-                             B.cref == C.storeID,
-                             sort=C.name.ascending)
+            query = s.query((B, C),
+                            B.cref == C.storeID,
+                            sort=C.name.ascending)
 
             self.assertEqual(query.count(), 3)
 
@@ -625,14 +618,15 @@ class MultipleQuery(TestCase):
         presence of offset and limit.
         """
         s = Store()
+
         def entesten():
             for i in range(3):
                 c = C(store=s, name="C.%s" % i)
-                B(store=s, name="B.%s" % (2-i), cref=c)
-                B(store=s, name="B2.%s" % (2-i), cref=c)
+                B(store=s, name="B.%s" % (2 - i), cref=c)
+                B(store=s, name="B2.%s" % (2 - i), cref=c)
 
-            query = s.query( (B, C),
-                             B.cref == C.storeID)
+            query = s.query((B, C),
+                            B.cref == C.storeID)
 
             totalCombinations = 6
 
@@ -640,14 +634,14 @@ class MultipleQuery(TestCase):
 
             for offset in range(totalCombinations):
                 for limit in range(totalCombinations + 1):
-                    query = s.query( (B, C),
-                                     B.cref == C.storeID,
-                                     offset=offset, limit=limit )
-                    expectedCount = min((totalCombinations-offset), limit)
+                    query = s.query((B, C),
+                                    B.cref == C.storeID,
+                                    offset=offset, limit=limit)
+                    expectedCount = min((totalCombinations - offset), limit)
                     actualCount = query.count()
                     self.assertEqual(actualCount, expectedCount,
-                                      "Got %s results with offset %s, limit %s" % (
-                                      actualCount, offset, limit))
+                                     "Got %s results with offset %s, limit %s" % (
+                                         actualCount, offset, limit))
 
         s.transact(entesten)
         s.close()
@@ -658,6 +652,7 @@ class MultipleQuery(TestCase):
         item queries.
         """
         s = Store()
+
         def entesten():
             for i in range(3):
                 c = C(store=s, name="C.%s" % i)
@@ -665,10 +660,10 @@ class MultipleQuery(TestCase):
                 A(store=s, type="A.%s" % i, reftoc=b)
                 A(store=s, type="A.%s" % i, reftoc=b)
 
-            query = s.query( (B, C),
-                             AND(B.cref == C.storeID,
-                                 A.reftoc == B.storeID),
-                             sort = C.name.ascending )
+            query = s.query((B, C),
+                            AND(B.cref == C.storeID,
+                                A.reftoc == B.storeID),
+                            sort=C.name.ascending)
 
             self.assertEqual(query.count(), 6)
 
@@ -689,6 +684,7 @@ class MultipleQuery(TestCase):
         once behave correctly.
         """
         s = Store()
+
         def entesten():
             pops = B(store=s, name="Pops")
             dad = B(store=s, name="Dad", cref=pops)
@@ -699,15 +695,16 @@ class MultipleQuery(TestCase):
             Gen2 = Placeholder(B)
             Gen3 = Placeholder(B)
 
-            query = s.query( (Gen1, Gen2, Gen3),
-                             AND(Gen3.cref == Gen2.storeID,
-                                 Gen2.cref == Gen1.storeID),
-                             sort=Gen3.name.ascending )
+            query = s.query((Gen1, Gen2, Gen3),
+                            AND(Gen3.cref == Gen2.storeID,
+                                Gen2.cref == Gen1.storeID),
+                            sort=Gen3.name.ascending)
 
             self.assertEqual(query.count(), 2)
 
             self.assertEqual(tuple(b.name for b in next(iter(query))),
-                              ("Pops", "Dad", "Bro"))
+                             ("Pops", "Dad", "Bro"))
+
         s.transact(entesten)
         s.close()
 
@@ -716,12 +713,13 @@ class MultipleQuery(TestCase):
         Verify that tuples of length one don't do anything crazy.
         """
         s = Store()
+
         def entesten():
             for i in range(3):
                 C(store=s, name="C.%s" % i)
 
-            query = s.query( (C,),
-                             sort=C.name.ascending)
+            query = s.query((C,),
+                            sort=C.name.ascending)
 
             self.assertEqual(query.count(), 3)
 
@@ -742,12 +740,12 @@ class MultipleQuery(TestCase):
         Verify that empty tuples don't give SQL crashes.
         """
         s = Store()
+
         def entesten():
             self.assertRaises(ValueError, s.query, ())
 
         s.transact(entesten)
         s.close()
-
 
     def test_limitAttribute(self):
         """
@@ -757,7 +755,6 @@ class MultipleQuery(TestCase):
         s = Store()
         q = s.query((B, C), limit=3)
         self.assertEqual(q.limit, 3)
-
 
     def test_clone(self):
         """
@@ -770,7 +767,6 @@ class MultipleQuery(TestCase):
         self.assertEqual(q1.store, q2.store)
         self.assertEqual(q2.limit, q1.limit)
 
-
     def test_cloneLimit(self):
         """
         L{MultipleItemQuery} implements L{IQuery} and should provide a 'cloneQuery'
@@ -782,7 +778,6 @@ class MultipleQuery(TestCase):
         self.assertEqual(q1.store, q2.store)
         self.assertEqual(q2.limit, 5)
 
-
     def test_storeAttribute(self):
         """
         L{MultipleItemQuery} implements L{IQuery} and should provide a 'store' attribute
@@ -792,7 +787,6 @@ class MultipleQuery(TestCase):
         q = s.query((B, C))
         self.assertEqual(q.store, s)
 
-
     def test_limitAttributeDistinct(self):
         """
         L{_MultipleItemDistinctQuery} implements LI{IQuery} and should provide a
@@ -801,7 +795,6 @@ class MultipleQuery(TestCase):
         s = Store()
         q = s.query((B, C), limit=3)
         self.assertEqual(q.limit, 3)
-
 
     def test_cloneDistinct(self):
         """
@@ -815,7 +808,6 @@ class MultipleQuery(TestCase):
         self.assertEqual(q1.store, q2.store)
         self.assertEqual(q2.limit, q1.limit)
 
-
     def test_cloneLimitDistinct(self):
         """
         L{_MultipleItemDistinctQuery} implements L{IQuery} and should provide a
@@ -828,7 +820,6 @@ class MultipleQuery(TestCase):
         self.assertEqual(q1.store, q2.store)
         self.assertEqual(q2.limit, 5)
 
-
     def test_storeAttributeDistinct(self):
         """
         L{_MultipleItemDistinctQuery} implements L{IQuery} and should provide a
@@ -840,14 +831,18 @@ class MultipleQuery(TestCase):
         self.assertEqual(q.store, s)
 
 
-
 class QueryingTestCase(TestCase):
     def setUp(self):
         s = self.store = Store()
+
         def _createStuff():
-            self.d1 = D(store=s, one='d1.one', two='d1.two', three='d1.three', four='d1.four', id='1')
-            self.d2 = D(store=s, one='d2.one', two='d2.two', three='d2.three', four='d2.four', id='2')
-            self.d3 = D(store=s, one='d3.one', two='d3.two', three='d3.three', four='d3.four', id='3')
+            self.d1 = D(store=s, one='d1.one', two='d1.two', three='d1.three',
+                        four='d1.four', id='1')
+            self.d2 = D(store=s, one='d2.one', two='d2.two', three='d2.three',
+                        four='d2.four', id='2')
+            self.d3 = D(store=s, one='d3.one', two='d3.two', three='d3.three',
+                        four='d3.four', id='3')
+
         s.transact(_createStuff)
 
     def tearDown(self):
@@ -892,11 +887,11 @@ class QueryingTestCase(TestCase):
         self.assertEqual([str(a) for a in query.getArgs(self.store)], args)
 
 
-
 class TableOrder(TestCase):
     """
     Tests for the order of tables when joins are being performed.
     """
+
     def test_baseQuery(self):
         """
         Test that the simplest query possible, one with only a FROM clause,
@@ -906,7 +901,6 @@ class TableOrder(TestCase):
         query = store.query(A)
         self.assertEqual(query.fromClauseParts, [store.getTableName(A)])
 
-
     def test_singleValueComparison(self):
         """
         Test that a query with a simple comparison against a value specifies
@@ -915,7 +909,6 @@ class TableOrder(TestCase):
         store = Store()
         query = store.query(A, A.type == 'value')
         self.assertEqual(query.fromClauseParts, [store.getTableName(A)])
-
 
     def test_twoColumnComparison(self):
         """
@@ -927,7 +920,6 @@ class TableOrder(TestCase):
         query = store.query(A, A.type == A.reftoc)
         self.assertEqual(query.fromClauseParts, [store.getTableName(A)])
 
-
     def test_baseSort(self):
         """
         Test that a query which includes an ORDER BY clause including a column
@@ -937,7 +929,6 @@ class TableOrder(TestCase):
         store = Store()
         query = store.query(A, sort=A.type.ascending)
         self.assertEqual(query.fromClauseParts, [store.getTableName(A)])
-
 
     def test_comparisonWithSort(self):
         """
@@ -949,7 +940,6 @@ class TableOrder(TestCase):
         query = store.query(A, A.type == 'value', sort=A.type.ascending)
         self.assertEqual(query.fromClauseParts, [store.getTableName(A)])
 
-
     def test_invalidComparison(self):
         """
         Test that a query with a WHERE clause which does not reference the type
@@ -960,7 +950,6 @@ class TableOrder(TestCase):
             ValueError,
             store.query, A, B.name == 'value')
 
-
     def test_invalidSort(self):
         """
         Test that sorting by a column from a table other than the one being
@@ -970,7 +959,6 @@ class TableOrder(TestCase):
         self.assertRaises(
             ValueError,
             store.query, A, sort=B.name.ascending)
-
 
     def test_singleJoin(self):
         """
@@ -984,7 +972,6 @@ class TableOrder(TestCase):
             query.fromClauseParts,
             [store.getTableName(A), store.getTableName(B)])
 
-
     def test_singleJoinReversed(self):
         """
         Test that joining on another table by performing a comparison between
@@ -996,7 +983,6 @@ class TableOrder(TestCase):
         self.assertEqual(
             query.fromClauseParts,
             [store.getTableName(B), store.getTableName(A)])
-
 
     def test_explicitTableOrder(self):
         """
@@ -1023,7 +1009,6 @@ class AndOrQueries(QueryingTestCase):
         self.assertRaises(ValueError, AND)
         self.assertRaises(ValueError, OR)
 
-
     def testOneCondition(self):
         """
         Test that an L{AND} or an L{OR} with a single argument collapses to
@@ -1039,7 +1024,6 @@ class AndOrQueries(QueryingTestCase):
             ['Narf!'])
         self.assertEqual(self.query(D, AND(D.one == 'd1.one')), [self.d1])
         self.assertEqual(self.query(D, OR(D.one == 'd1.one')), [self.d1])
-
 
     def testMultipleAndConditions(self):
         condition = AND(A.type == 'Narf!',
@@ -1094,7 +1078,6 @@ class SetMembershipQuery(QueryingTestCase):
             comparison.getArgs(self.store),
             values)
 
-
     def test_oneOfColumnQueryGeneration(self):
         """
         Test that comparing an attribute for containment against an L{IColumn}
@@ -1111,7 +1094,6 @@ class SetMembershipQuery(QueryingTestCase):
         self.assertEqual(
             comparison.getArgs(self.store),
             [])
-
 
     def test_oneOfColumnQueryQueryGeneration(self):
         """
@@ -1130,7 +1112,6 @@ class SetMembershipQuery(QueryingTestCase):
         self.assertEqual(
             comparison.getArgs(self.store),
             [])
-
 
     def test_oneOfColumnQueryQueryGenerationWithArguments(self):
         """
@@ -1160,7 +1141,6 @@ class SetMembershipQuery(QueryingTestCase):
             list(map(str, comparison.getArgs(self.store))),
             [value])
 
-
     def testOneOfWithList(self):
         cx = C(store=self.store, name='x')
         C(store=self.store, name='y')
@@ -1171,7 +1151,6 @@ class SetMembershipQuery(QueryingTestCase):
 
         self.assertEqual(list(query), [cx, cz])
 
-
     def testOneOfWithSet(self):
         s = Store()
 
@@ -1179,15 +1158,15 @@ class SetMembershipQuery(QueryingTestCase):
         C(store=s, name='y')
         cz = C(store=s, name='z')
 
-        self.assertEqual(list(s.query(C, C.name.oneOf(set(['x', 'z', 'a'])), sort=C.name.ascending)),
-                          [cx, cz])
+        self.assertEqual(list(s.query(C, C.name.oneOf(set(['x', 'z', 'a'])),
+                                      sort=C.name.ascending)),
+                         [cx, cz])
 
 
 class WildcardQueries(QueryingTestCase):
     def testNoConditions(self):
         self.assertRaises(TypeError, D.one.like)
         self.assertRaises(TypeError, D.one.notLike)
-
 
     def test_likeValueComparisonInvolvedTables(self):
         """
@@ -1198,7 +1177,6 @@ class WildcardQueries(QueryingTestCase):
         comparison = D.one.like('foo')
         self.assertEqual(comparison.getInvolvedTables(), [D])
 
-
     def test_likeColumnComparisonInvolvedTables(self):
         """
         Test that both the table to which a column belongs and the table to
@@ -1207,7 +1185,6 @@ class WildcardQueries(QueryingTestCase):
         """
         comparison = D.one.like(A.type)
         self.assertEqual(comparison.getInvolvedTables(), [D, A])
-
 
     def testOneString(self):
         self.assertQuery(
@@ -1248,7 +1225,6 @@ class WildcardQueries(QueryingTestCase):
         self.assertEqual(
             self.query(D, D.one.like(D.two, '%', D.three)), [])
 
-
     def testStartsEndsWith(self):
         self.assertQuery(
             D.four.startswith('foo'),
@@ -1263,7 +1239,6 @@ class WildcardQueries(QueryingTestCase):
         self.assertEqual(
             self.query(D, D.four.endswith('3.four')), [self.d3])
 
-
     def testStartsEndsWithText(self):
         self.assertEqual(
             self.query(D, D.four.startswith('d1')),
@@ -1271,7 +1246,6 @@ class WildcardQueries(QueryingTestCase):
         self.assertEqual(
             self.query(D, D.four.endswith('2.four')),
             [self.d2])
-
 
 
 class UniqueTest(TestCase):
@@ -1292,13 +1266,12 @@ class UniqueTest(TestCase):
     def testUniqueNotFoundDefault(self):
         bing = object()
         self.assertEqual(bing, self.s.findUnique(
-                C, C.name == 'non-existent',
-                default=bing))
+            C, C.name == 'non-existent',
+            default=bing))
 
     def testUniqueDuplicate(self):
         self.assertRaises(errors.DuplicateUniqueItem,
                           self.s.findUnique, C, C.name == 'non-unique')
-
 
 
 class PlaceholderTestItem(Item):
@@ -1314,10 +1287,12 @@ COMPARISON_OPS = [
     operator.lt, operator.le, operator.eq,
     operator.ne, operator.ge, operator.gt]
 
+
 class PlaceholderTestCase(TestCase):
     """
     Tests for placeholder table name support.
     """
+
     def test_placeholderType(self):
         """
         Test that the C{type} attribute of a Placeholder column is the
@@ -1327,7 +1302,6 @@ class PlaceholderTestCase(TestCase):
         a = p.attr
         self.assertIdentical(a.type, p)
 
-
     def test_placeholderTableName(self):
         """
         Test that the table name of a Placeholder is the same as the table name
@@ -1335,8 +1309,8 @@ class PlaceholderTestCase(TestCase):
         """
         s = Store()
         p = Placeholder(PlaceholderTestItem)
-        self.assertEqual(p.getTableName(s), PlaceholderTestItem.getTableName(s))
-
+        self.assertEqual(p.getTableName(s),
+                         PlaceholderTestItem.getTableName(s))
 
     def test_placeholderColumnInterface(self):
         """
@@ -1345,7 +1319,6 @@ class PlaceholderTestCase(TestCase):
         p = Placeholder(PlaceholderTestItem)
         a = p.attr
         self.assertTrue(IColumn.providedBy(a))
-
 
     def test_placeholderAttributeValueComparison(self):
         """
@@ -1359,7 +1332,6 @@ class PlaceholderTestCase(TestCase):
             self.assertTrue(IComparison.providedBy(op(p.attr, value)))
             self.assertTrue(IComparison.providedBy(op(value, p.attr)))
 
-
     def test_placeholderAttributeColumnComparison(self):
         """
         Test that getting an attribute from a Placeholder which exists on the
@@ -1368,9 +1340,10 @@ class PlaceholderTestCase(TestCase):
         """
         p = Placeholder(PlaceholderTestItem)
         for op in COMPARISON_OPS:
-            self.assertTrue(IComparison.providedBy(op(p.attr, PlaceholderTestItem.attr)))
-            self.assertTrue(IComparison.providedBy(op(PlaceholderTestItem.attr, p.attr)))
-
+            self.assertTrue(
+                IComparison.providedBy(op(p.attr, PlaceholderTestItem.attr)))
+            self.assertTrue(
+                IComparison.providedBy(op(PlaceholderTestItem.attr, p.attr)))
 
     def _placeholderAttributeSimilarity(self, kind, sql, args):
         s = Store()
@@ -1384,41 +1357,40 @@ class PlaceholderTestCase(TestCase):
         comparison = getattr(p.characters, kind)(value)
         self.assertTrue(IComparison.providedBy(comparison))
         self.assertEqual(comparison.getQuery(s),
-                          sql % (p.characters.getColumnName(s),))
+                         sql % (p.characters.getColumnName(s),))
         self.assertEqual(
             comparison.getArgs(s),
             [args % (value,)])
-
 
     def test_placeholderAttributeSimilarity(self):
         """
         Test that placeholder attributes can be used with the SQL LIKE
         operator.
         """
-        return self._placeholderAttributeSimilarity('like', '(%s LIKE (?))', '%s')
-
+        return self._placeholderAttributeSimilarity('like', '(%s LIKE (?))',
+                                                    '%s')
 
     def test_placeholderAttributeDisimilarity(self):
         """
         Test that placeholder attributes can be used with the SQL NOT LIKE
         operator.
         """
-        return self._placeholderAttributeSimilarity('notLike', '(%s NOT LIKE (?))', '%s')
-
+        return self._placeholderAttributeSimilarity('notLike',
+                                                    '(%s NOT LIKE (?))', '%s')
 
     def test_placeholderAttributeStartsWith(self):
         """
         Test that placeholder attributes work with the .startswith() method.
         """
-        return self._placeholderAttributeSimilarity('startswith', '(%s LIKE (?))', '%s%%')
-
+        return self._placeholderAttributeSimilarity('startswith',
+                                                    '(%s LIKE (?))', '%s%%')
 
     def test_placeholderAttributeEndsWith(self):
         """
         Test that placeholder attributes work with the .endswith() method.
         """
-        return self._placeholderAttributeSimilarity('endswith', '(%s LIKE (?))', '%%%s')
-
+        return self._placeholderAttributeSimilarity('endswith',
+                                                    '(%s LIKE (?))', '%%%s')
 
     def test_placeholderLikeTarget(self):
         """
@@ -1441,7 +1413,6 @@ class PlaceholderTestCase(TestCase):
             comparison.getArgs(s),
             [])
 
-
     def test_placeholderContainment(self):
         """
         Test that placeholder attributes can be used with the SQL IN and NOT IN
@@ -1462,7 +1433,6 @@ class PlaceholderTestCase(TestCase):
         self.assertEqual(
             comparison.getArgs(s),
             value)
-
 
     def test_placeholderAntiContainment(self):
         """
@@ -1485,7 +1455,6 @@ class PlaceholderTestCase(TestCase):
             comparison.getArgs(s),
             value)
 
-
     def test_placeholderContainmentTarget(self):
         """
         Test that a placeholder attribute can be used as the right-hand
@@ -1507,7 +1476,6 @@ class PlaceholderTestCase(TestCase):
             comparison.getArgs(s),
             [])
 
-
     def test_placeholderAntiContainmentTarget(self):
         """
         Test that a placeholder attribute can be used as the right-hand
@@ -1524,11 +1492,10 @@ class PlaceholderTestCase(TestCase):
         self.assertEqual(
             comparison.getQuery(s),
             '%s NOT IN (%s)' % (PlaceholderTestItem.attr.getColumnName(s),
-                            p.attr.getColumnName(s)))
+                                p.attr.getColumnName(s)))
         self.assertEqual(
             comparison.getArgs(s),
             [])
-
 
     def test_placeholderStoreID(self):
         """
@@ -1539,7 +1506,6 @@ class PlaceholderTestCase(TestCase):
         p = Placeholder(PlaceholderTestItem)
         self.assertTrue(IComparison.providedBy(p.storeID > value))
 
-
     def test_placeholderAttributeError(self):
         """
         Test that trying to get an attribute from a Placeholder which is not an
@@ -1547,7 +1513,6 @@ class PlaceholderTestCase(TestCase):
         """
         p = Placeholder(PlaceholderTestItem)
         self.assertRaises(AttributeError, getattr, p, 'nonexistentAttribute')
-
 
     def test_placeholderComparisonTables(self):
         """
@@ -1562,10 +1527,9 @@ class PlaceholderTestCase(TestCase):
         self.assertEqual(len(involvedTables), 1)
         theTable = next(iter(involvedTables))
         self.assertEqual(theTable.getTableName(s),
-                          PlaceholderTestItem.getTableName(s))
+                         PlaceholderTestItem.getTableName(s))
         self.assertEqual(theTable.getTableAlias(s, ()),
-                          'placeholder_0')
-
+                         'placeholder_0')
 
     def test_placeholderComparisonQuery(self):
         """
@@ -1589,7 +1553,6 @@ class PlaceholderTestCase(TestCase):
             comparison.getArgs(s),
             [value])
 
-
     def test_placeholderComparisonArgs(self):
         """
         Test that the result of L{IComparison.getArgs} on an attribute
@@ -1601,7 +1564,6 @@ class PlaceholderTestCase(TestCase):
         value = 0
         args = (p.attr > value).getArgs(s)
         self.assertEqual(args, [0])
-
 
     def test_placeholderQuery(self):
         """
@@ -1615,7 +1577,6 @@ class PlaceholderTestCase(TestCase):
             sql,
             'SELECT * FROM %s AS placeholder_0' % (
                 PlaceholderTestItem.getTableName(s),))
-
 
     def test_placeholderMultiQuery(self):
         """
@@ -1632,7 +1593,6 @@ class PlaceholderTestCase(TestCase):
             sql,
             'SELECT * FROM %s AS placeholder_0, %s AS placeholder_1' % (
                 tableName, tableName))
-
 
     def test_placeholderComparison(self):
         """
@@ -1656,7 +1616,6 @@ class PlaceholderTestCase(TestCase):
                 PlaceholderTestItem.getTableName(s)))
         self.assertEqual(args, [])
 
-
     def test_placeholderOrdering(self):
         """
         Placeholders should be ordered based on the order in which they were
@@ -1673,7 +1632,6 @@ class PlaceholderTestCase(TestCase):
         self.assertTrue(p1 != p2)
         self.assertTrue(p2 != p1)
 
-
     def test_placeholderObjectSorting(self):
         """
         Placeholders should sort based on the order in which they were
@@ -1684,7 +1642,6 @@ class PlaceholderTestCase(TestCase):
         random.shuffle(shuffledPlaceholders)
         shuffledPlaceholders.sort()
         self.assertEqual(placeholders, shuffledPlaceholders)
-
 
     def test_placeholderAliasAssignment(self):
         """
@@ -1700,7 +1657,6 @@ class PlaceholderTestCase(TestCase):
         aliases.append('placeholder_')
         self.assertEqual(p1.getTableAlias(s, aliases), 'placeholder_0')
         self.assertEqual(p2.getTableAlias(s, aliases), 'placeholder_1')
-
 
     def test_multiplePlaceholderComparisons(self):
         """
@@ -1724,9 +1680,9 @@ class PlaceholderTestCase(TestCase):
             'SELECT * '
             'FROM %s, %s AS placeholder_0, %s AS placeholder_1 '
             'WHERE ((%s = placeholder_0.[attr]) AND '
-                   '(%s = placeholder_0.[other]) AND '
-                   '(%s = placeholder_1.[attr]) AND '
-                   '(%s = placeholder_1.[characters]))' % (
+            '(%s = placeholder_0.[other]) AND '
+            '(%s = placeholder_1.[attr]) AND '
+            '(%s = placeholder_1.[characters]))' % (
                 PlaceholderTestItem.getTableName(s),
                 PlaceholderTestItem.getTableName(s),
                 PlaceholderTestItem.getTableName(s),
@@ -1735,7 +1691,6 @@ class PlaceholderTestCase(TestCase):
                 PlaceholderTestItem.attr.getColumnName(s),
                 PlaceholderTestItem.characters.getColumnName(s)))
         self.assertEqual(args, [])
-
 
     def test_sortByPlaceholderAttribute(self):
         """
@@ -1758,7 +1713,6 @@ class PlaceholderTestCase(TestCase):
         self.assertEqual(sql, expectedSQL)
         self.assertEqual(args, [])
 
-
     def test_placeholderColumnNamesInQueryTarget(self):
         """
         Test that placeholders are used correctly in the 'result'
@@ -1769,23 +1723,23 @@ class PlaceholderTestCase(TestCase):
 
         query = ItemQuery(s, p)
 
-        expectedSQL = "placeholder_0.oid, placeholder_0.[attr], placeholder_0.[characters], placeholder_0.[other]"
+        expectedSQL = "placeholder_0.oid, placeholder_0.[attr], " \
+                      "placeholder_0.[characters], placeholder_0.[other]"
 
         self.assertEqual(query._queryTarget, expectedSQL)
-
 
 
 class BytesDeprecatedLikeTests(TestCase):
     """
     Deprecated tests for LIKE queries on L{axiom.attributes.bytes}.
     """
+
     def test_startsWith(self):
         self.assertWarns(
             DeprecationWarning,
             'axiom.attributes.startswith was deprecated in Axiom 0.7.5',
             __file__,
             lambda: D.one.startswith('string'))
-
 
     def test_endsWith(self):
         self.assertWarns(
@@ -1794,14 +1748,12 @@ class BytesDeprecatedLikeTests(TestCase):
             __file__,
             lambda: D.one.endswith('string'))
 
-
     def test_like(self):
         self.assertWarns(
             DeprecationWarning,
             'axiom.attributes.like was deprecated in Axiom 0.7.5',
             __file__,
             lambda: D.one.like('string'))
-
 
     def test_notLike(self):
         self.assertWarns(

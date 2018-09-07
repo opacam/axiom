@@ -2,7 +2,9 @@
 
 from axiom.attributes import integer, inmemory
 from axiom.item import Item, normalize
-from axiom.upgrade import registerAttributeCopyingUpgrader
+from axiom.upgrade import \
+    registerAttributeCopyingUpgrader
+
 
 class Simple(Item):
     # Don't import the old version, otherwise its schema will get loaded.  This
@@ -20,5 +22,6 @@ class Simple(Item):
         """
         Item.__init__(self, **stuff)
         self.verify = (self, self.store.getItemByID(self.storeID))
+
 
 registerAttributeCopyingUpgrader(Simple, 1, 2)

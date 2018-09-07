@@ -1,8 +1,9 @@
 from twisted.trial.unittest import TestCase
 
-from axiom.store import Store
-from axiom.item import Item
 from axiom.attributes import integer, AND, OR
+from axiom.item import Item
+from axiom.store import Store
+
 
 class ThingsWithIntegers(Item):
     schemaVersion = 1
@@ -19,26 +20,28 @@ class NotARealThing(Item):
     irrelevantAttribute = integer()
 
     def __init__(self, **kw):
-        raise NotImplementedError("You cannot create things that are not real!")
+        raise NotImplementedError(
+            "You cannot create things that are not real!")
 
 
 class TestCountQuery(TestCase):
-
     RANGE = 10
     MIDDLE = 5
 
-
-    def assertCountEqualsQuery(self, item, cond = None):
+    def assertCountEqualsQuery(self, item, cond=None):
         self.assertEqual(self.store.count(item, cond),
-                          len(list(self.store.query(item, cond))),
-                          'count and len(list(query)) not equals: %r,%r'%(item, cond))
+                         len(list(self.store.query(item, cond))),
+                         'count and len(list(query)) not equals: %r,%r' % (
+                             item, cond))
 
     def setUp(self):
         self.store = Store()
+
         def populate():
             for i in range(self.RANGE):
                 for j in range(self.RANGE):
-                    ThingsWithIntegers(store = self.store, a = i, b = j)
+                    ThingsWithIntegers(store=self.store, a=i, b=j)
+
         self.store.transact(populate)
 
     def testBasicCount(self):
@@ -54,11 +57,13 @@ class TestCountQuery(TestCase):
 
     def testANDConditionCount(self):
         self.assertCountEqualsQuery(ThingsWithIntegers,
-                                    AND(ThingsWithIntegers.a > self.MIDDLE, ThingsWithIntegers.b < self.MIDDLE))
+                                    AND(ThingsWithIntegers.a > self.MIDDLE,
+                                        ThingsWithIntegers.b < self.MIDDLE))
 
     def testORConditionCount(self):
         self.assertCountEqualsQuery(ThingsWithIntegers,
-                                    OR(ThingsWithIntegers.a > self.MIDDLE, ThingsWithIntegers.b < self.MIDDLE))
+                                    OR(ThingsWithIntegers.a > self.MIDDLE,
+                                       ThingsWithIntegers.b < self.MIDDLE))
 
     def testEmptyResult(self):
         self.assertCountEqualsQuery(ThingsWithIntegers,

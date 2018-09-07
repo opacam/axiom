@@ -1,15 +1,13 @@
-
-from axiom.store import Store
-from axiom.substore import SubStore
-from axiom.item import Item
+from twisted.python import filepath
+from twisted.trial.unittest import TestCase
 
 from axiom.attributes import integer
+from axiom.item import Item
+from axiom.store import Store
+from axiom.substore import SubStore
 
-from twisted.trial.unittest import TestCase
-from twisted.python import filepath
 
 class ExplosiveItem(Item):
-
     nothing = integer()
 
     def yourHeadAsplode(self):
@@ -38,8 +36,8 @@ class TestCrossStoreTransactions(CrossStoreTest):
             ei.yourHeadAsplode()
 
         self.assertRaises(ZeroDivisionError,
-                              self.store.transact,
-                              createTwoSubStoreThings)
+                          self.store.transact,
+                          createTwoSubStoreThings)
 
         self.assertEqual(
             self.store.query(ExplosiveItem).count(),
@@ -48,6 +46,7 @@ class TestCrossStoreTransactions(CrossStoreTest):
         self.assertEqual(
             self.substore.query(ExplosiveItem).count(),
             0)
+
 
 class TestCrossStoreInsert(CrossStoreTest):
 

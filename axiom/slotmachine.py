@@ -4,10 +4,12 @@ hyper = super
 
 _NOSLOT = object()
 
+
 class Allowed(object):
     """
     An attribute that's allowed to be set.
     """
+
     def __init__(self, name, default=_NOSLOT):
         self.name = name
         self.default = default
@@ -19,19 +21,21 @@ class Allowed(object):
             return oself.__dict__[self.name]
         if self.default is not _NOSLOT:
             return self.default
-        raise AttributeError("%r object did not have attribute %r" %(oself.__class__.__name__, self.name))
+        raise AttributeError("%r object did not have attribute %r" % (
+            oself.__class__.__name__, self.name))
 
     def __delete__(self, oself):
         if self.name not in oself.__dict__:
             # Returning rather than raising here because that's what
             # member_descriptor does, and Axiom relies upon that behavior.
-            ## raise AttributeError('%r object has no attribute %r' %
-            ##                      (oself.__class__.__name__, self.name))
+            #  # raise AttributeError('%r object has no attribute %r' %
+            #  #                     (oself.__class__.__name__, self.name))
             return
         del oself.__dict__[self.name]
 
     def __set__(self, oself, value):
         oself.__dict__[self.name] = value
+
 
 class _SlotMetaMachine(type):
     def __new__(meta, name, bases, dictionary):
@@ -82,7 +86,10 @@ class Attribute(object):
         assert oself is None, "%s: should be masked" % (self.name,)
         return self
 
+
 _RAISE = object()
+
+
 class SetOnce(Attribute):
 
     def __init__(self, doc='', default=_RAISE):
@@ -102,12 +109,13 @@ class SetOnce(Attribute):
             setattr(iself, self.trueattr, value)
         else:
             raise AttributeError('%s.%s may only be set once' % (
-                    type(iself).__name__, self.name))
+                type(iself).__name__, self.name))
 
     def __get__(self, iself, type=None):
         if type is not None and iself is None:
             return self
         return getattr(iself, self.trueattr, *self.default)
+
 
 class SchemaMetaMachine(_SlotMetaMachine):
 
@@ -176,6 +184,7 @@ class _Strict(object):
 
 class SchemaMachine(_Strict, metaclass=SchemaMetaMachine):
     pass
+
 
 class SlotMachine(_Strict, metaclass=_SlotMetaMachine):
     pass

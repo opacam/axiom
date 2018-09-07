@@ -6,6 +6,7 @@ from axiom.upgrade import registerUpgrader
 
 NEW_VALUE = 71
 
+
 class Referrer(Item):
     """
     An item which just refers to another kind of item which will be upgraded.
@@ -39,5 +40,6 @@ def referee1to2(oldReferee):
     referrer.referee = Referee(store=store, value=NEW_VALUE)
     return oldReferee.upgradeVersion(
         Referee.typeName, 1, 2, value=oldReferee.value)
+
 
 registerUpgrader(referee1to2, Referee.typeName, 1, 2)

@@ -32,23 +32,24 @@ aware that a user's database contains only their own data.
 
 import warnings
 
-from zope.interface import implements, Interface
-
-from twisted.cred.portal import IRealm
-from twisted.cred.credentials import IUsernamePassword, IUsernameHashedPassword
 from twisted.cred.checkers import ICredentialsChecker, ANONYMOUS
+from twisted.cred.credentials import IUsernamePassword, IUsernameHashedPassword
+from twisted.cred.portal import IRealm
 from twisted.python import log
+from zope.interface import implementer, Interface
 
-from axiom.store import Store
-from axiom.item import Item
-from axiom.substore import SubStore
-from axiom.attributes import text, integer, reference, boolean, AND, OR
+from axiom import upgrade, iaxiom
+from axiom.attributes import \
+    text, integer, reference, boolean, AND, OR
 from axiom.errors import (
     BadCredentials, NoSuchUser, DuplicateUser, MissingDomainPart)
+from axiom.item import Item
 from axiom.scheduler import IScheduler
-from axiom import upgrade, iaxiom
+from axiom.store import Store
+from axiom.substore import SubStore
 
 ANY_PROTOCOL = '*'
+
 
 def dflip(x):
     warnings.warn("Don't use dflip no more", stacklevel=2)
@@ -75,7 +76,6 @@ class DatabaseDirectoryConflict(Exception):
     """
 
 
-
 class IPreauthCredentials(Interface):
     """
     Deprecated.  Don't use this.  If you wrote a checker which can check this
@@ -84,7 +84,7 @@ class IPreauthCredentials(Interface):
     """
 
 
-
+@implementer(IUsernamePassword, IUsernameHashedPassword)
 class Preauthenticated(object):
     """
     A credentials object of multiple types which has already been authenticated
@@ -93,11 +93,9 @@ class Preauthenticated(object):
     Credentials interfaces methods are implemented to behave as if the correct
     credentials had been supplied.
     """
-    implements(IUsernamePassword, IUsernameHashedPassword)
 
     def __init__(self, username):
         self.username = username
-
 
     def checkPassword(self, password):
         """
@@ -105,10 +103,8 @@ class Preauthenticated(object):
         """
         return True
 
-
     def __repr__(self):
         return '<Preauthenticated: %s>' % (self.username,)
-
 
 
 class LoginMethod(Item):
@@ -137,17 +133,20 @@ class LoginMethod(Item):
 
     verified = boolean(indexed=True, allowNone=False)
 
+
 def upgradeLoginMethod1To2(old):
     return old.upgradeVersion(
-            'login_method', 1, 2,
-            localpart=old.localpart,
-            domain=old.domain,
-            internal=old.internal,
-            protocol=old.protocol,
-            account=old.account,
-            verified=old.verified)
+        'login_method', 1, 2,
+        localpart=old.localpart,
+        domain=old.domain,
+        internal=old.internal,
+        protocol=old.protocol,
+        account=old.account,
+        verified=old.verified)
+
 
 upgrade.registerUpgrader(upgradeLoginMethod1To2, 'login_method', 1, 2)
+
 
 class LoginAccount(Item):
     """
@@ -166,14 +165,13 @@ class LoginAccount(Item):
     schemaVersion = 2
 
     password = text()
-    avatars = reference()       # reference to a thing which can be adapted to
-                                # implementations for application-level
-                                # protocols.  In general this is a reference to
-                                # a SubStore because this is optimized for
-                                # applications where per-user data is a
-                                # substantial portion of the cost.
+    avatars = reference()  # reference to a thing which can be adapted to
+    # implementations for application-level
+    # protocols.  In general this is a reference to
+    # a SubStore because this is optimized for
+    # applications where per-user data is a
+    # substantial portion of the cost.
     disabled = integer()
-
 
     def __conform__(self, interface):
         """
@@ -190,6 +188,7 @@ class LoginAccount(Item):
         down into it.
         """
         ss = self.avatars.open()
+
         def _():
             oldAccounts = ss.query(LoginAccount)
             oldMethods = ss.query(LoginMethod)
@@ -197,6 +196,7 @@ class LoginAccount(Item):
                 x.deleteFromStore()
             self.cloneInto(ss, ss)
             IScheduler(ss).migrateDown()
+
         ss.transact(_)
 
     def migrateUp(self):
@@ -206,18 +206,21 @@ class LoginAccount(Item):
         site store which contains it.
         """
         siteStore = self.store.parent
+
         def _():
-            # No convenience method for the following because needing to do it is
-            # *rare*.  It *should* be ugly; 99% of the time if you need to do this
-            # you're making a mistake. -glyph
+            # No convenience method for the following because needing to do
+            # it is *rare*.  It *should* be ugly; 99% of the time if you need
+            # to do this you're making a mistake. -glyph
             siteStoreSubRef = siteStore.getItemByID(self.store.idInParent)
             self.cloneInto(siteStore, siteStoreSubRef)
             IScheduler(self.store).migrateUp()
+
         siteStore.transact(_)
 
     def cloneInto(self, newStore, avatars):
         """
-        Create a copy of this LoginAccount and all associated LoginMethods in a different Store.
+        Create a copy of this LoginAccount and all associated LoginMethods
+        in a different Store.
 
         Return the copied LoginAccount.
         """
@@ -237,12 +240,13 @@ class LoginAccount(Item):
         return la
 
     def deleteLoginMethods(self):
-        self.store.query(LoginMethod, LoginMethod.account == self).deleteFromStore()
+        self.store.query(LoginMethod,
+                         LoginMethod.account == self).deleteFromStore()
 
-
-    def addLoginMethod(self, localpart, domain, protocol=ANY_PROTOCOL, verified=False, internal=False):
+    def addLoginMethod(self, localpart, domain, protocol=ANY_PROTOCOL,
+                       verified=False, internal=False):
         """
-        Add a login method to this account, propogating up or down as necessary
+        Add a login method to this account, propagating up or down as necessary
         to site store or user store to maintain consistency.
         """
         # Out takes you west or something
@@ -268,7 +272,6 @@ class LoginAccount(Item):
                                internal=internal)
 
 
-
 def insertUserStore(siteStore, userStorePath):
     """
     Move the SubStore at the indicated location into the given site store's
@@ -283,9 +286,10 @@ def insertUserStore(siteStore, userStorePath):
     # exclusively by this process.
     ls = siteStore.findUnique(LoginSystem)
     unattachedSubStore = Store(userStorePath)
-    for lm in unattachedSubStore.query(LoginMethod,
-                                       LoginMethod.account == unattachedSubStore.findUnique(LoginAccount),
-                                       sort=LoginMethod.internal.descending):
+    for lm in unattachedSubStore.query(
+            LoginMethod,
+            LoginMethod.account == unattachedSubStore.findUnique(LoginAccount),
+            sort=LoginMethod.internal.descending):
         if ls.accountByAddress(lm.localpart, lm.domain) is None:
             localpart, domain = lm.localpart, lm.domain
             break
@@ -294,7 +298,8 @@ def insertUserStore(siteStore, userStorePath):
 
     unattachedSubStore.close()
 
-    insertLocation = siteStore.newFilePath('account', domain, localpart + '.axiom')
+    insertLocation = siteStore.newFilePath('account', domain,
+                                           localpart + '.axiom')
     insertParentLoc = insertLocation.parent()
     if not insertParentLoc.exists():
         insertParentLoc.makedirs()
@@ -308,7 +313,8 @@ def insertUserStore(siteStore, userStorePath):
     attachedStore.findUnique(LoginAccount).migrateUp()
 
 
-def extractUserStore(userAccount, extractionDestination, legacySiteAuthoritative=True):
+def extractUserStore(userAccount, extractionDestination,
+                     legacySiteAuthoritative=True):
     """
     Move the SubStore for the given user account out of the given site store
     completely.  Place the user store's database directory into the given
@@ -332,6 +338,7 @@ def extractUserStore(userAccount, extractionDestination, legacySiteAuthoritative
         userAccount.migrateDown()
     av = userAccount.avatars
     av.open().close()
+
     def _():
         # We're separately deleting several Items from the site store, then
         # we're moving some files.  If we cannot move the files, we don't want
@@ -360,16 +367,15 @@ def extractUserStore(userAccount, extractionDestination, legacySiteAuthoritative
         userAccount.deleteLoginMethods()
         userAccount.deleteFromStore()
         av.storepath.moveTo(extractionDestination)
+
     userAccount.store.transact(_)
 
 
 def upgradeLoginAccount1To2(oldAccount):
     password = oldAccount.password
     if password is not None:
-        try:
-            password = password.decode('ascii')
-        except UnicodeDecodeError:
-            password = None
+        if isinstance(password, bytes):
+            password = password.decode('utf-8')
 
     newAccount = oldAccount.upgradeVersion(
         'login', 1, 2,
@@ -397,20 +403,24 @@ def upgradeLoginAccount1To2(oldAccount):
                           disabled=newAccount.disabled)
     make(ss, subacc)
 
+
 from axiom import upgrade
+
 upgrade.registerUpgrader(upgradeLoginAccount1To2, 'login', 1, 2)
 
 
 class SubStoreLoginMixin:
     def makeAvatars(self, domain, username):
-        return SubStore.createNew(self.store, ('account', domain, username + '.axiom'))
+        return SubStore.createNew(self.store,
+                                  ('account', domain, username + '.axiom'))
 
+
+@implementer(IRealm, ICredentialsChecker)
 class LoginBase:
     """
     I am a database powerup which provides an interface to a collection of
     username/password pairs mapped to user application objects.
     """
-    implements(IRealm, ICredentialsChecker)
 
     credentialInterfaces = (IUsernamePassword, IUsernameHashedPassword)
 
@@ -421,11 +431,12 @@ class LoginBase:
         @type username: C{unicode} without NUL
         @type domain: C{unicode} without NUL
         """
-        for account in self.store.query(LoginAccount,
-                                     AND(LoginMethod.domain == domain,
-                                         LoginMethod.localpart == username,
-                                         LoginAccount.disabled == 0,
-                                         LoginMethod.account == LoginAccount.storeID)):
+        for account in self.store.query(
+                LoginAccount,
+                AND(LoginMethod.domain == domain,
+                    LoginMethod.localpart == username,
+                    LoginAccount.disabled == 0,
+                    LoginMethod.account == LoginAccount.storeID)):
             return account
 
     def addAccount(self, username, domain, password, avatars=None,
@@ -558,6 +569,7 @@ def getLoginMethods(store, protocol=None):
         comp = None
     return store.query(LoginMethod, comp)
 
+
 def getAccountNames(store, protocol=None):
     """
     Retrieve account name information about the given database.
@@ -570,7 +582,7 @@ def getAccountNames(store, protocol=None):
     refer to the given store.
     """
     return ((meth.localpart, meth.domain) for meth
-                in getLoginMethods(store, protocol))
+            in getLoginMethods(store, protocol))
 
 
 def getDomainNames(store):
@@ -579,9 +591,7 @@ def getDomainNames(store):
     """
     domains = set()
     domains.update(store.query(
-            LoginMethod,
-            AND(LoginMethod.internal == True,
-                LoginMethod.domain != None)).getColumn("domain").distinct())
+        LoginMethod,
+        AND(LoginMethod.internal,
+            LoginMethod.domain is not None)).getColumn("domain").distinct())
     return sorted(domains)
-
-

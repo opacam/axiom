@@ -1,21 +1,17 @@
-
 """
 Benchmark the tagNames method of L{axiom.tags.Catalog}
 """
 
-import time, sys
-
-from epsilon.scripts import benchmark
-
 from axiom import store, item, attributes, tags
+from epsilon.scripts import benchmark
 
 N_TAGS = 20
 N_COPIES = 5000
 N_LOOPS = 1000
 
+
 class TaggedObject(item.Item):
     name = attributes.text()
-
 
 
 def main():
@@ -26,6 +22,7 @@ def main():
     def tagObjects(tag, copies):
         for x in range(copies):
             c.tag(o, tag)
+
     for i in range(N_TAGS):
         s.transact(tagObjects, str(i), N_COPIES)
 
@@ -36,7 +33,6 @@ def main():
     benchmark.start()
     s.transact(getTags)
     benchmark.stop()
-
 
 
 if __name__ == '__main__':

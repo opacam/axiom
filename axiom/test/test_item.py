@@ -1,22 +1,25 @@
-import sys, os
+import os
+import sys
 
-from zope.interface import Interface, implementer
-
-from twisted.trial import unittest
-from twisted.trial.unittest import TestCase, SynchronousTestCase
 from twisted.internet import error, protocol, defer, reactor
 from twisted.protocols import policies
 from twisted.python import log, filepath
+from twisted.trial import unittest
+from twisted.trial.unittest import TestCase, SynchronousTestCase
+from zope.interface import Interface, implementer
 
 from axiom import store, item
-from axiom.store import Store
-from axiom.item import Item, declareLegacyItem, empowerment
-from axiom.errors import ChangeRejected
-from axiom.test import itemtest, itemtestmain
 from axiom.attributes import integer, text, inmemory
+from axiom.errors import ChangeRejected
+from axiom.item import Item, declareLegacyItem, \
+    empowerment
+from axiom.store import Store
+from axiom.test import itemtest, itemtestmain
+
 
 class ProcessFailed(Exception):
     pass
+
 
 class ProcessOutputCollector(protocol.ProcessProtocol, policies.TimeoutMixin):
     TIMEOUT = 60
@@ -54,11 +57,9 @@ class ProcessOutputCollector(protocol.ProcessProtocol, policies.TimeoutMixin):
             self.onCompletion.callback(self.output)
 
 
-
 class NoAttrsItem(item.Item):
     typeName = 'noattrsitem'
     schemaVersion = 1
-
 
 
 class TransactedMethodItem(item.Item):
@@ -72,9 +73,9 @@ class TransactedMethodItem(item.Item):
         self.value = "changed"
         self.calledWith = [a, b, c]
         raise Exception("TransactedMethodItem.method test exception")
+
     method.attribute = 'value'
     method = item.transacted(method)
-
 
 
 class StoredNoticingItem(item.Item):
@@ -98,7 +99,6 @@ class StoredNoticingItem(item.Item):
     def activate(self):
         self.activated = True
 
-
     def stored(self):
         self.storedCount += 1
         self.activatedCount += getattr(self, 'activated', 0)
@@ -109,7 +109,6 @@ class ItemWithDefault(item.Item):
     Item with an attribute having a default value.
     """
     value = integer(default=10)
-
 
 
 class ItemTestCase(unittest.TestCase):
@@ -134,7 +133,6 @@ class ItemTestCase(unittest.TestCase):
         self.assertIn('storeID=%d' % (item.storeID,), reprString)
         self.assertIn('ItemWithDefault', reprString)
 
-
     def test_partiallyInitializedRepr(self):
         """
         L{Item.__repr__} should return a C{str} giving some information,
@@ -143,7 +141,6 @@ class ItemTestCase(unittest.TestCase):
         item = ItemWithDefault.__new__(ItemWithDefault)
         reprString = repr(item)
         self.assertIn('ItemWithDefault', reprString)
-
 
     def test_itemClassOrdering(self):
         """
@@ -162,7 +159,6 @@ class ItemTestCase(unittest.TestCase):
         self.assertFalse(A == B)
         self.assertFalse(B == A)
 
-
     def test_legacyItemComparison(self):
         """
         Legacy items with different versions must not compare equal.
@@ -173,11 +169,9 @@ class ItemTestCase(unittest.TestCase):
         self.assertEqual(legacy1, legacy1)
         self.assertEqual(legacy2, legacy2)
 
-
     def testCreateItem(self):
         st = store.Store()
         self.assertRaises(item.CantInstantiateItem, item.Item, store=st)
-
 
     def testCreateItemWithDefault(self):
         """
@@ -188,7 +182,6 @@ class ItemTestCase(unittest.TestCase):
         it.value = None
         self.assertEqual(it.value, None)
 
-
     def test_storedCallbackAfterActivateCallback(self):
         """
         Test that L{Item.stored} is only called after L{Item.activate} has been
@@ -197,7 +190,6 @@ class ItemTestCase(unittest.TestCase):
         st = store.Store()
         i = StoredNoticingItem(store=st)
         self.assertEqual(i.activatedCount, 1)
-
 
     def test_storedCallbackOnAttributeSet(self):
         """
@@ -210,7 +202,6 @@ class ItemTestCase(unittest.TestCase):
         i.store = st
         self.assertEqual(i.storedCount, 1)
 
-
     def test_storedCallbackOnItemCreation(self):
         """
         Test that L{Item.stored} is called when an item is created with a
@@ -219,7 +210,6 @@ class ItemTestCase(unittest.TestCase):
         st = store.Store()
         i = StoredNoticingItem(store=st)
         self.assertEqual(i.storedCount, 1)
-
 
     def test_storedCallbackNotOnLoad(self):
         """
@@ -230,7 +220,6 @@ class ItemTestCase(unittest.TestCase):
         storeID = StoredNoticingItem(store=st).storeID
         self.assertEqual(st.getItemByID(storeID).storedCount, 1)
 
-
     def testTransactedTransacts(self):
         """
         Test that a method wrapped in C{axiom.item.transacted} is automatically
@@ -239,9 +228,9 @@ class ItemTestCase(unittest.TestCase):
         s = store.Store()
         i = TransactedMethodItem(store=s, value="unchanged")
         exc = self.assertRaises(Exception, i.method, 'a', 'b', 'c')
-        self.assertEqual(exc.args, ("TransactedMethodItem.method test exception",))
+        self.assertEqual(exc.args,
+                         ("TransactedMethodItem.method test exception",))
         self.assertEqual(i.value, "unchanged")
-
 
     def testTransactedPassedArguments(self):
         """
@@ -251,9 +240,9 @@ class ItemTestCase(unittest.TestCase):
         s = store.Store()
         i = TransactedMethodItem(store=s)
         exc = self.assertRaises(Exception, i.method, 'a', b='b', c='c')
-        self.assertEqual(exc.args, ("TransactedMethodItem.method test exception",))
+        self.assertEqual(exc.args,
+                         ("TransactedMethodItem.method test exception",))
         self.assertEqual(i.calledWith, ['a', 'b', 'c'])
-
 
     def testTransactedPreservesAttributes(self):
         """
@@ -262,18 +251,15 @@ class ItemTestCase(unittest.TestCase):
         """
         self.assertEqual(TransactedMethodItem.method.attribute, 'value')
 
-
     def testPersistentValues(self):
         st = store.Store()
         pi = itemtest.PlainItem(store=st, plain='hello')
         self.assertEqual(pi.persistentValues(), {'plain': 'hello'})
 
-
     def testPersistentValuesWithoutValue(self):
         st = store.Store()
         pi = itemtest.PlainItem(store=st)
         self.assertEqual(pi.persistentValues(), {'plain': None})
-
 
     def testCreateItemWithNoAttrs(self):
         st = store.Store()
@@ -310,7 +296,10 @@ class ItemTestCase(unittest.TestCase):
         d = defer.Deferred()
         p = ProcessOutputCollector(d)
         try:
-            reactor.spawnProcess(p, sys.executable, [sys.executable, '-Wignore', itemtestmain.__file__.rstrip('co'), storePath.path, str(itemID)], e)
+            reactor.spawnProcess(p, sys.executable,
+                                 [sys.executable, '-Wignore',
+                                  itemtestmain.__file__.rstrip('co'),
+                                  storePath.path, str(itemID)], e)
         except NotImplementedError:
             raise unittest.SkipTest("Implement processes here")
 
@@ -342,21 +331,22 @@ class ItemTestCase(unittest.TestCase):
         i = itemtest.PlainItem(store=st)
         oldStoreID = i.storeID
         self.assertEqual(st.getItemByID(oldStoreID, default=1234),
-                          i)
+                         i)
         i.deleteFromStore()
-        self.assertEqual(st.getItemByID(oldStoreID+100, default=1234),
-                          1234)
+        self.assertEqual(st.getItemByID(oldStoreID + 100, default=1234),
+                         1234)
         self.assertEqual(st.getItemByID(oldStoreID, default=1234),
-                          1234)
-
+                         1234)
 
     def test_duplicateDefinition(self):
         """
         When the same typeName is defined as an item class multiple times in
         memory, the second definition fails with a L{RuntimeError}.
         """
+
         class X(Item):
             dummy = integer()
+
         try:
             class X(Item):
                 dummy = integer()
@@ -365,18 +355,19 @@ class ItemTestCase(unittest.TestCase):
         else:
             self.fail("Duplicate definition should have failed.")
 
-
     def test_nonConflictingRedefinition(self):
         """
         If the python item class associated with a typeName is garbage
         collected, a new python item class can re-use that type name.
         """
-        class X(Item):
-            dummy = integer()
-        del X
+
         class X(Item):
             dummy = integer()
 
+        del X
+
+        class X(Item):
+            dummy = integer()
 
 
 class TestItem(Item):
@@ -385,7 +376,6 @@ class TestItem(Item):
     someplace.
     """
     attribute = integer()
-
 
 
 class BrokenCommittedItem(Item):
@@ -402,29 +392,28 @@ class BrokenCommittedItem(Item):
             self._committed(self)
 
 
-
 class CheckpointTestCase(TestCase):
     """
     Tests for Item checkpointing.
     """
+
     def setUp(self):
         self.checkpointed = []
+
         def checkpoint(item):
             self.checkpointed.append(item)
+
         self.originalCheckpoint = TestItem.checkpoint.__func__
         TestItem.checkpoint = checkpoint
 
-
     def tearDown(self):
         TestItem.checkpoint = self.originalCheckpoint
-
 
     def _autocommitBrokenCommittedMethodTest(self, method):
         store = Store()
         item = BrokenCommittedItem(store=store)
         item._committed = method
         self.assertRaises(ChangeRejected, setattr, item, 'attribute', 0)
-
 
     def _transactionBrokenCommittedMethodTest(self, method):
         store = Store()
@@ -433,8 +422,8 @@ class CheckpointTestCase(TestCase):
 
         def txn():
             item.attribute = 0
-        self.assertRaises(ChangeRejected, store.transact, txn)
 
+        self.assertRaises(ChangeRejected, store.transact, txn)
 
     def test_autocommitBrokenCommittedMethodMutate(self):
         """
@@ -442,60 +431,66 @@ class CheckpointTestCase(TestCase):
         original change was made in autocommit mode) callback raises
         L{ChangeRejected}.
         """
+
         def mutate(self):
             self.attribute = 0
-        return self._autocommitBrokenCommittedMethodTest(mutate)
 
+        return self._autocommitBrokenCommittedMethodTest(mutate)
 
     def test_transactionBrokenCommittedMethodMutate(self):
         """
         Test changing a persistent attribute in the committed callback raises
         L{ChangeRejected}.
         """
+
         def mutate(item):
             item.attribute = 0
-        return self._transactionBrokenCommittedMethodTest(mutate)
 
+        return self._transactionBrokenCommittedMethodTest(mutate)
 
     def test_autocommitBrokenCommittedMethodDelete(self):
         """
         Test deleting an item in the committed (even if the original change was
         made in autocommit mode) callback raises L{ChangeRejected}.
         """
+
         def delete(item):
             item.deleteFromStore()
-        return self._autocommitBrokenCommittedMethodTest(delete)
 
+        return self._autocommitBrokenCommittedMethodTest(delete)
 
     def test_transactionBrokenCommittedMethodDelete(self):
         """
         Test changing a persistent attribute in the committed callback raises
         L{ChangeRejected}.
         """
+
         def delete(item):
             item.deleteFromStore()
-        return self._transactionBrokenCommittedMethodTest(delete)
 
+        return self._transactionBrokenCommittedMethodTest(delete)
 
     def test_autocommitBrokenCommittedMethodCreate(self):
         """
         Test that creating a new item in a committed (even if the original
         change was made in autocommit mode) callback raises L{ChangeRejected}
         """
+
         def create(item):
             TestItem(store=item.store)
-        return self._autocommitBrokenCommittedMethodTest(create)
 
+        return self._autocommitBrokenCommittedMethodTest(create)
 
     def test_transactionBrokenCommittedMethodCreate(self):
         """
         Test that creating a new item in a committed callback raises
         L{ChangeRejected}.
         """
+
         def create(item):
             TestItem(store=item.store)
-        return self._transactionBrokenCommittedMethodTest(create)
 
+        return self._transactionBrokenCommittedMethodTest(create)
 
     def test_autocommitCheckpoint(self):
         """
@@ -506,20 +501,20 @@ class CheckpointTestCase(TestCase):
         item = TestItem(store=store)
         self.assertEqual(self.checkpointed, [item])
 
-
     def test_transactionCheckpoint(self):
         """
         Test that an Item is checkpointed when the transaction it is created
         within is committed.
         """
         store = Store()
+
         def txn():
             item = TestItem(store=store)
             self.assertEqual(self.checkpointed, [])
             return item
+
         item = store.transact(txn)
         self.assertEqual(self.checkpointed, [item])
-
 
     def test_queryCheckpoint(self):
         """
@@ -527,12 +522,13 @@ class CheckpointTestCase(TestCase):
         executed.
         """
         store = Store()
+
         def txn():
             item = TestItem(store=store)
             list(store.query(TestItem))
             self.assertEqual(self.checkpointed, [item])
-        store.transact(txn)
 
+        store.transact(txn)
 
     def test_autocommitTouchCheckpoint(self):
         """
@@ -547,7 +543,6 @@ class CheckpointTestCase(TestCase):
 
         item.attribute = 0
         self.assertEqual(self.checkpointed, [item])
-
 
     def test_transactionTouchCheckpoint(self):
         """
@@ -564,8 +559,8 @@ class CheckpointTestCase(TestCase):
             item.touch()
             store.checkpoint()
             self.assertEqual(self.checkpointed, [item])
-        store.transact(txn)
 
+        store.transact(txn)
 
     def test_twoQueriesOneCheckpoint(self):
         """
@@ -584,8 +579,8 @@ class CheckpointTestCase(TestCase):
             self.assertEqual(self.checkpointed, [item])
             list(store.query(TestItem))
             self.assertEqual(self.checkpointed, [item])
-        store.transact(txn)
 
+        store.transact(txn)
 
 
 class TestInterface(Interface):
@@ -594,23 +589,23 @@ class TestInterface(Interface):
     """
 
 
-
 class TestInterface2(Interface):
     """
     Testing interface.
     """
 
 
-
 class EmpowermentTests(SynchronousTestCase):
     """
     Tests for the C{@empowerment} class decorator.
     """
+
     def test_oneDecorator(self):
         """
         Decorating an item with C{@empowerment} declares it as empowering and
         implementing that interface.
         """
+
         @empowerment(TestInterface)
         class TI(Item):
             pass
@@ -618,12 +613,12 @@ class EmpowermentTests(SynchronousTestCase):
         self.assertEqual(TI()._getPowerupInterfaces(), [(TestInterface, 0)])
         self.assertTrue(TestInterface.implementedBy(TI))
 
-
     def test_twoDecorators(self):
         """
         Decorating an item twice adds the powerup interfaces in the order of
         invocation.
         """
+
         @empowerment(TestInterface2, 20)
         @empowerment(TestInterface)
         class TI2(Item):
@@ -636,12 +631,12 @@ class EmpowermentTests(SynchronousTestCase):
         self.assertTrue(TestInterface.implementedBy(TI2))
         self.assertTrue(TestInterface2.implementedBy(TI2))
 
-
     def test_decoratorAndAttribute(self):
         """
         Decorating an item with an existing C{powerupInterfaces} attribute adds
         the powerup interface to the end.
         """
+
         @empowerment(TestInterface)
         @implementer(TestInterface2)
         class TI3(Item):

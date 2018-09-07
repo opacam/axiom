@@ -1,15 +1,18 @@
 # -*- test-case-name: axiom.test.test_upgrading -*-
 
 
+from axiom.attributes import \
+    text, integer, reference, inmemory
 from axiom.item import Item
-from axiom.attributes import text, integer, reference, inmemory
-
 from axiom.upgrade import registerUpgrader
+
 
 class ActivateHelper:
     activated = 0
+
     def activate(self):
         self.activated += 1
+
 
 class Adventurer(ActivateHelper, Item):
     typeName = 'test_app_player'
@@ -42,9 +45,11 @@ def upgradePlayerAndSword(oldplayer):
 
     return newplayer, newsword
 
+
 def player1to2(oldplayer):
     newplayer, newsword = upgradePlayerAndSword(oldplayer)
     return newplayer
+
 
 def sword1to2(oldsword):
     oldPlayerType = oldsword.store.getOldVersionOf('test_app_player', 1)
@@ -56,4 +61,3 @@ def sword1to2(oldsword):
 
 registerUpgrader(sword1to2, 'test_app_sword', 1, 2)
 registerUpgrader(player1to2, 'test_app_player', 1, 2)
-

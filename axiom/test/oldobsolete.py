@@ -1,7 +1,8 @@
 # -*- test-case-name: axiom.test.test_upgrading.DeletionTest.testPowerups -*-
 
-from axiom.item import Item
 from axiom.attributes import integer
+from axiom.item import Item
+
 
 class Obsolete(Item):
     """

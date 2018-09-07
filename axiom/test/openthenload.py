@@ -4,8 +4,9 @@
 
 import sys
 
-from axiom.store import Store
 from twisted.python import filepath
+
+from axiom.store import Store
 
 # Open the store so that we get the bad version of the schema
 s = Store(filepath.FilePath(sys.argv[1]))

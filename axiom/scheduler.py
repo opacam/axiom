@@ -3,12 +3,12 @@
 """
 Timed event scheduling for Axiom databases.
 
-With this module, applications can schedule an L{Item} to have its C{run} method
-called at a particular point in the future.  This call will happen even if the
-process which initially schedules it exits and the database is later re-opened
-by another process (of course, if the scheduled time comes and goes while no
-process is using the database, then the call will be delayed until some process
-opens the database and starts its services).
+With this module, applications can schedule an L{Item} to have its C{run}
+method called at a particular point in the future. This call will happen even
+if the process which initially schedules it exits and the database is later
+re-opened by another process (of course, if the scheduled time comes and goes
+while no process is using the database, then the call will be delayed until
+some process opens the database and starts its services).
 
 This module contains two implementations of the L{axiom.iaxiom.IScheduler}
 interface, one for site stores and one for sub-stores.  Items can only be
@@ -25,21 +25,19 @@ collection by name::
 
 import warnings
 
-from zope.interface import implements
-
-from twisted.internet import reactor
-
 from twisted.application.service import IService, Service
+from twisted.internet import reactor
 from twisted.python import log, failure
+from zope.interface import implementer
 
-from epsilon.extime import Time
-
+from axiom.attributes import AND, timestamp, \
+    reference, integer, inmemory, bytes
+from axiom.dependency import uninstallFrom
 from axiom.iaxiom import IScheduler
 from axiom.item import Item, declareLegacyItem
-from axiom.attributes import AND, timestamp, reference, integer, inmemory, bytes
-from axiom.dependency import uninstallFrom
-from axiom.upgrade import registerUpgrader
 from axiom.substore import SubStore
+from axiom.upgrade import registerUpgrader
+from epsilon.extime import Time
 
 VERBOSE = False
 
@@ -69,7 +67,6 @@ class TimedEvent(Item):
     def activate(self):
         self.running = False
 
-
     def _rescheduleFromRun(self, newTime):
         """
         Schedule this event to be run at the indicated time, or if the
@@ -79,7 +76,6 @@ class TimedEvent(Item):
             self.deleteFromStore()
         else:
             self.time = newTime
-
 
     def invokeRunnable(self):
         """
@@ -97,7 +93,6 @@ class TimedEvent(Item):
                 self.running = False
             self._rescheduleFromRun(newTime)
 
-
     def handleError(self, now, failureObj):
         """ An error occurred running my runnable.  Check my runnable for an
         error-handling method called 'timedEventErrorHandler' that will take
@@ -113,7 +108,6 @@ class TimedEvent(Item):
         else:
             self._defaultErrorHandler(now, failureObj)
 
-
     def _defaultErrorHandler(self, now, failureObj):
         TimedEventFailureLog(store=self.store,
                              desiredTime=self.time,
@@ -121,7 +115,6 @@ class TimedEvent(Item):
                              runnable=self.runnable,
                              traceback=failureObj.getTraceback())
         self.deleteFromStore()
-
 
 
 class _WackyControlFlow(Exception):
@@ -133,6 +126,7 @@ class _WackyControlFlow(Exception):
 
 MAX_WORK_PER_TICK = 10
 
+
 class SchedulerMixin:
     def _oneTick(self, now):
         theEvent = self._getNextEvent(now)
@@ -140,11 +134,10 @@ class SchedulerMixin:
             return False
         try:
             theEvent.invokeRunnable()
-        except:
+        except Exception as e:
             raise _WackyControlFlow(theEvent, failure.Failure())
         self.lastEventAt = now
         return True
-
 
     def _getNextEvent(self, now):
         # o/` gonna party like it's 1984 o/`
@@ -154,7 +147,6 @@ class SchedulerMixin:
                                           limit=1))
         if theEventL:
             return theEventL[0]
-
 
     def tick(self):
         now = self.now()
@@ -166,25 +158,28 @@ class SchedulerMixin:
             try:
                 workBeingDone = self.store.transact(self._oneTick, now)
             except _WackyControlFlow as wcf:
-                self.store.transact(wcf.eventObject.handleError, now, wcf.failureObject)
+                self.store.transact(wcf.eventObject.handleError, now,
+                                    wcf.failureObject)
                 log.err(wcf.failureObject)
                 errors += 1
                 workBeingDone = True
             if workBeingDone:
                 workUnitsPerformed += 1
-        x = list(self.store.query(TimedEvent, sort=TimedEvent.time.ascending, limit=1))
+        x = list(self.store.query(TimedEvent, sort=TimedEvent.time.ascending,
+                                  limit=1))
         if x:
             self._transientSchedule(x[0].time, now)
         if errors or VERBOSE:
-            log.msg("The scheduler ran %(eventCount)s events%(errors)s." % dict(
+            log.msg(
+                "The scheduler ran %(eventCount)s events%(errors)s." %
+                dict(
                     eventCount=workUnitsPerformed,
-                    errors=(errors and (" (with %d errors)" % (errors,))) or ''))
-
+                    errors=(errors and (" (with %d errors)" %
+                                        (errors,))) or ''))
 
     def schedule(self, runnable, when):
         TimedEvent(store=self.store, time=when, runnable=runnable)
         self._transientSchedule(when, self.now())
-
 
     def reschedule(self, runnable, fromWhen, toWhen):
         for evt in self.store.query(TimedEvent,
@@ -194,25 +189,26 @@ class SchedulerMixin:
             self._transientSchedule(toWhen, self.now())
             break
         else:
-            raise ValueError("%r is not scheduled to run at %r" % (runnable, fromWhen))
-
+            raise ValueError(
+                "%r is not scheduled to run at %r" % (runnable, fromWhen))
 
     def unscheduleFirst(self, runnable):
         """
         Remove from given item from the schedule.
 
-        If runnable is scheduled to run multiple times, only the temporally first
-        is removed.
+        If runnable is scheduled to run multiple times,
+        only the temporally first is removed.
         """
-        for evt in self.store.query(TimedEvent, TimedEvent.runnable == runnable, sort=TimedEvent.time.ascending):
+        for evt in self.store.query(TimedEvent,
+                                    TimedEvent.runnable == runnable,
+                                    sort=TimedEvent.time.ascending):
             evt.deleteFromStore()
             break
 
-
     def unscheduleAll(self, runnable):
-        for evt in self.store.query(TimedEvent, TimedEvent.runnable == runnable):
+        for evt in self.store.query(TimedEvent,
+                                    TimedEvent.runnable == runnable):
             evt.deleteFromStore()
-
 
     def scheduledTimes(self, runnable):
         """
@@ -223,15 +219,15 @@ class SchedulerMixin:
             TimedEvent, TimedEvent.runnable == runnable)
         return (event.time for event in events if not event.running)
 
-_EPSILON = 1e-20      # A very small amount of time.
+
+_EPSILON = 1e-20  # A very small amount of time.
 
 
-
+@implementer(IScheduler)
 class _SiteScheduler(SchedulerMixin, Service, object):
     """
     Adapter from a site store to L{IScheduler}.
     """
-    implements(IScheduler)
 
     timer = None
     callLater = reactor.callLater
@@ -241,14 +237,12 @@ class _SiteScheduler(SchedulerMixin, Service, object):
         self.store = store
         self.setName(SITE_SCHEDULER)
 
-
     def startService(self):
         """
         Start calling persistent timed events whose time has come.
         """
         super(_SiteScheduler, self).startService()
         self._transientSchedule(self.now(), self.now())
-
 
     def stopService(self):
         """
@@ -259,11 +253,9 @@ class _SiteScheduler(SchedulerMixin, Service, object):
             self.timer.cancel()
             self.timer = None
 
-
     def tick(self):
         self.timer = None
         return super(_SiteScheduler, self).tick()
-
 
     def _transientSchedule(self, when, now):
         """
@@ -293,23 +285,20 @@ class _SiteScheduler(SchedulerMixin, Service, object):
         self.nextEventAt = when
 
 
-
+@implementer(IScheduler)
 class _UserScheduler(SchedulerMixin, Service, object):
     """
     Adapter from a non-site store to L{IScheduler}.
     """
-    implements(IScheduler)
 
     def __init__(self, store):
         self.store = store
-
 
     def now(self):
         """
         Report the current time, as reported by the parent's scheduler.
         """
         return IScheduler(self.store.parent).now()
-
 
     def _transientSchedule(self, when, now):
         """
@@ -329,7 +318,6 @@ class _UserScheduler(SchedulerMixin, Service, object):
                 subStore=subStore)
             hook._schedule(when)
 
-
     def migrateDown(self):
         """
         Remove the components in the site store for this SubScheduler.
@@ -347,7 +335,6 @@ class _UserScheduler(SchedulerMixin, Service, object):
                 te.deleteFromStore()
             ssph.deleteFromStore()
 
-
     def migrateUp(self):
         """
         Recreate the hooks in the site store to trigger this SubScheduler.
@@ -357,7 +344,7 @@ class _UserScheduler(SchedulerMixin, Service, object):
             self._transientSchedule(te.time, None)
 
 
-
+@implementer(IScheduler)
 class _SchedulerCompatMixin(object):
     """
     Backwards compatibility helper for L{Scheduler} and L{SubScheduler}.
@@ -370,13 +357,14 @@ class _SchedulerCompatMixin(object):
 
     @see: L{IScheduler}
     """
-    implements(IScheduler)
 
     def forwardToReal(name):
         def get(self):
             return getattr(IScheduler(self.store), name)
+
         def set(self, value):
             setattr(IScheduler(self.store), name, value)
+
         return property(get, set)
 
     now = forwardToReal("now")
@@ -386,7 +374,6 @@ class _SchedulerCompatMixin(object):
     unschedule = forwardToReal("unschedule")
     unscheduleAll = forwardToReal("unscheduleAll")
     scheduledTimes = forwardToReal("scheduledTimes")
-
 
     def activate(self):
         """
@@ -402,12 +389,12 @@ class _SchedulerCompatMixin(object):
             stacklevel = 5
         warnings.warn(
             self.__class__.__name__ + " is deprecated since Axiom 0.5.32.  "
-            "Just adapt stores to IScheduler.",
+                                      "Just adapt stores to IScheduler.",
             category=PendingDeprecationWarning,
             stacklevel=stacklevel)
 
 
-
+@implementer(IService)
 class Scheduler(Item, _SchedulerCompatMixin):
     """
     Track and execute persistent timed events for a I{site} store.
@@ -415,7 +402,6 @@ class Scheduler(Item, _SchedulerCompatMixin):
     This is deprecated and present only for backwards compatibility.  Adapt
     the store to L{IScheduler} instead.
     """
-    implements(IService)
 
     typeName = 'axiom_scheduler'
     schemaVersion = 2
@@ -425,7 +411,6 @@ class Scheduler(Item, _SchedulerCompatMixin):
     def activate(self):
         _SchedulerCompatMixin.activate(self)
 
-
     def setServiceParent(self, parent):
         """
         L{Scheduler} is no longer an L{IService}, but still provides this
@@ -433,7 +418,6 @@ class Scheduler(Item, _SchedulerCompatMixin):
         powerup is loaded (in which case it will be used like a service
         once).
         """
-
 
 
 declareLegacyItem(
@@ -448,6 +432,7 @@ def scheduler1to2(old):
     new.store.powerDown(new, IService)
     new.store.powerDown(new, IScheduler)
     return new
+
 
 registerUpgrader(scheduler1to2, Scheduler.typeName, 1, 2)
 
@@ -466,7 +451,6 @@ class _SubSchedulerParentHook(Item):
         Tick our C{subStore}'s L{SubScheduler}.
         """
         IScheduler(self.subStore).tick()
-
 
     def _schedule(self, when):
         """
@@ -492,6 +476,7 @@ def upgradeParentHook1to2(oldHook):
         scheduler=oldHook.store.findFirst(Scheduler))
     return newHook
 
+
 registerUpgrader(upgradeParentHook1to2, _SubSchedulerParentHook.typeName, 1, 2)
 
 declareLegacyItem(
@@ -499,6 +484,7 @@ declareLegacyItem(
     dict(loginAccount=reference(),
          scheduledAt=timestamp(default=None),
          scheduler=reference()))
+
 
 def upgradeParentHook2to3(old):
     """
@@ -508,12 +494,14 @@ def upgradeParentHook2to3(old):
         old.typeName, 2, 3,
         loginAccount=old.loginAccount)
 
+
 registerUpgrader(upgradeParentHook2to3, _SubSchedulerParentHook.typeName, 2, 3)
 
 declareLegacyItem(
     _SubSchedulerParentHook.typeName, 3,
     dict(loginAccount=reference(),
          scheduler=reference()))
+
 
 def upgradeParentHook3to4(old):
     """
@@ -553,5 +541,6 @@ def subscheduler1to2(old):
         # up.  Fine.
         pass
     return new
+
 
 registerUpgrader(subscheduler1to2, SubScheduler.typeName, 1, 2)

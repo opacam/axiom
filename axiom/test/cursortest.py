@@ -6,7 +6,9 @@ Test code for any cursor implementation which is to work with Axiom.
 This probably isn't complete.
 """
 
-from axiom.errors import TimeoutError, TableAlreadyExists, SQLError
+from axiom.errors import TimeoutError, \
+    TableAlreadyExists, SQLError
+
 
 class StubCursor(object):
     """
@@ -18,17 +20,16 @@ class StubCursor(object):
     @ivar connection: A reference to the L{StubConnection} which created this
     cursor.
     """
+
     def __init__(self, connection):
         self.connection = connection
         self.statements = []
-
 
     def execute(self, statement, args=()):
         """
         Capture some SQL for later inspection.
         """
         self.statements.append(statement)
-
 
 
 class StubConnection(object):
@@ -38,9 +39,9 @@ class StubConnection(object):
 
     @ivar cursors: A list of all cursors ever created with this connection.
     """
+
     def __init__(self):
         self.cursors = []
-
 
     def cursor(self):
         """
@@ -48,7 +49,6 @@ class StubConnection(object):
         """
         self.cursors.append(StubCursor(self))
         return self.cursors[-1]
-
 
     def timeout(self):
         """
@@ -58,9 +58,7 @@ class StubConnection(object):
         raise NotImplementedError
 
 
-
 class ConnectionTestCaseMixin:
-
     # The number of seconds we will allow for timeouts in this test suite.
     TIMEOUT = 5.0
 
@@ -70,21 +68,17 @@ class ConnectionTestCaseMixin:
     # rely on.
     ALLOWED_SLOP = 0.2
 
-
     def createAxiomConnection(self):
         raise NotImplementedError("Cannot create Axiom Connection instance.")
 
-
     def createStubConnection(self):
         raise NotImplementedError("Cannot create Axiom Connection instance.")
-
 
     def createRealConnection(self):
         """
         Create a memory-backed database connection for integration testing.
         """
         raise NotImplementedError("Real connection creation not implemented.")
-
 
     def test_identifyTableCreationError(self):
         """
@@ -97,7 +91,6 @@ class ConnectionTestCaseMixin:
         cur.execute(CREATE_TABLE)
         e = self.assertRaises(TableAlreadyExists, cur.execute, CREATE_TABLE)
 
-
     def test_identifyGenericError(self):
         """
         When invalid SQL is issued, we should get a SQLError exception.
@@ -106,7 +99,6 @@ class ConnectionTestCaseMixin:
         cur = con.cursor()
         INVALID_STATEMENT = "not an SQL string"
         e = self.assertRaises(SQLError, cur.execute, INVALID_STATEMENT)
-
 
     def test_cursor(self):
         """
@@ -122,19 +114,21 @@ class ConnectionTestCaseMixin:
         self.assertEqual(len(stubConnection.cursors[0].statements), 1)
         self.assertEqual(stubConnection.cursors[0].statements[0], statement)
 
-
     def test_timeoutExceeded(self):
         """
         Test that the timeout we pass to the Connection is respected.
         """
         clock = [0]
+
         def time():
             return clock[0]
+
         def sleep(n):
             clock[0] += n
 
         stubConnection = self.createStubConnection()
-        axiomConnection = self.createAxiomConnection(stubConnection, timeout=self.TIMEOUT)
+        axiomConnection = self.createAxiomConnection(stubConnection,
+                                                     timeout=self.TIMEOUT)
         axiomCursor = axiomConnection.cursor()
 
         axiomCursor.time = time
@@ -159,6 +153,5 @@ class ConnectionTestCaseMixin:
         self.assertEqual(timeoutException.statement, statement)
         self.assertEqual(timeoutException.timeout, self.TIMEOUT)
         self.assertTrue(isinstance(
-                timeoutException.underlying,
-                self.expectedUnderlyingExceptionClass))
-
+            timeoutException.underlying,
+            self.expectedUnderlyingExceptionClass))

@@ -5,11 +5,18 @@
 This module holds the Axiom Store class and related classes, such as queries.
 """
 from epsilon import hotfix
+
 hotfix.require('twisted', 'filepath_copyTo')
 
-import time, os, itertools, warnings, sys, operator, weakref
+import time
+import os
+import itertools
+import warnings
+import sys
+import operator
+import weakref
 
-from zope.interface import implements
+from zope.interface import implementer
 
 from twisted.python import log
 from twisted.python.failure import Failure
@@ -21,7 +28,8 @@ from twisted.application.service import IService, IServiceCollection
 from epsilon.pending import PendingEvent
 from epsilon.cooperator import SchedulingService
 
-from axiom import _schema, attributes, upgrade, _fincache, iaxiom, errors
+from axiom import _schema, attributes, upgrade, \
+    _fincache, iaxiom, errors
 from axiom import item
 from axiom._pysqlite2 import Connection
 
@@ -48,10 +56,10 @@ _requiredTableIndexes = weakref.WeakKeyDictionary()
 _inMemorySchemaCache = weakref.WeakKeyDictionary()
 
 
-
 class NoEmptyItems(Exception):
     """You must define some attributes on every item.
     """
+
 
 def _mkdirIfNotExists(dirname):
     if os.path.isdir(dirname):
@@ -59,14 +67,14 @@ def _mkdirIfNotExists(dirname):
     os.makedirs(dirname)
     return True
 
-class AtomicFile(file):
+
+@implementer(iaxiom.IAtomicFile)
+class AtomicFile():
     """I am a file which is moved from temporary to permanent storage when it
     is closed.
 
     After I'm closed, I will have a 'finalpath' property saying where I went.
     """
-
-    implements(iaxiom.IAtomicFile)
 
     def __init__(self, tempname, destpath):
         """
@@ -79,7 +87,9 @@ class AtomicFile(file):
         called.
         """
         self._destpath = destpath
-        file.__init__(self, tempname, 'w+b')
+        self.f = open(tempname, 'w+b')
+        self.name = self.f.name
+        self.finalpath = self.f.finalpath
 
     def close(self):
         """
@@ -90,23 +100,20 @@ class AtomicFile(file):
         """
         now = time.time()
         try:
-            file.close(self)
+            self.f.close(self)
             _mkdirIfNotExists(self._destpath.dirname())
             self.finalpath = self._destpath
             os.rename(self.name, self.finalpath.path)
             os.utime(self.finalpath.path, (now, now))
-        except:
+        except Exception as e:
             return defer.fail()
         return defer.succeed(self.finalpath)
-
 
     def abort(self):
         os.unlink(self.name)
 
-
-_noItem = object()              # tag for optional argument to getItemByID
-                                # default
-
+# tag for optional argument to getItemByID default
+_noItem = object()
 
 
 def storeServiceSpecialCase(st, pups):
@@ -149,11 +156,11 @@ def storeServiceSpecialCase(st, pups):
 
 
 def _typeIsTotallyUnknown(typename, version):
-    return ((typename not in _typeNameToMostRecentClass)
-            and ((typename, version) not in _legacyTypes))
+    return ((typename not in _typeNameToMostRecentClass) and
+            ((typename, version) not in _legacyTypes))
 
 
-
+@implementer(iaxiom.IQuery)
 class BaseQuery:
     """
     This is the abstract base implementation of query logic shared between item
@@ -163,13 +170,12 @@ class BaseQuery:
     but all its subclasses must, so it is declared to.  Don't instantiate it
     directly.
     """
+
     # XXX: need a better convention for this sort of
     # abstract-but-provide-most-of-a-base-implementation thing. -glyph
 
     # How about not putting the implements(iaxiom.IQuery) here, but on
     # subclasses instead? -exarkun
-
-    implements(iaxiom.IQuery)
 
     def __init__(self, store, tableClass,
                  comparison=None, limit=None,
@@ -204,7 +210,6 @@ class BaseQuery:
         tables = self._involvedTables()
         self._computeFromClause(tables)
 
-
     _cloneAttributes = 'store tableClass comparison limit offset sort'.split()
 
     # IQuery
@@ -218,16 +223,14 @@ class BaseQuery:
             clonekw['sort'] = sort
         return self.__class__(**clonekw)
 
-
     def __repr__(self):
         return self.__class__.__name__ + '(' + ', '.join([
-                repr(self.store),
-                repr(self.tableClass),
-                repr(self.comparison),
-                repr(self.limit),
-                repr(self.offset),
-                repr(self.sort)]) + ')'
-
+            repr(self.store),
+            repr(self.tableClass),
+            repr(self.comparison),
+            repr(self.limit),
+            repr(self.offset),
+            repr(self.sort)]) + ')'
 
     def explain(self):
         """
@@ -246,7 +249,6 @@ class BaseQuery:
         """
         return ([self._sqlAndArgs('SELECT', self._queryTarget)[0]] +
                 self._runQuery('EXPLAIN SELECT', self._queryTarget))
-
 
     def _involvedTables(self):
         """
@@ -290,13 +292,13 @@ class BaseQuery:
 
         self.sortClauseParts = []
         for attr, direction in self.sort.orderColumns():
-            assert direction in ('ASC', 'DESC'), "%r not in ASC,DESC" % (direction,)
+            assert direction in ('ASC', 'DESC'), "%r not in ASC,DESC" % (
+                direction,)
             if attr.type not in tables:
                 raise ValueError(
                     "Ordering references type excluded from comparison")
             self.sortClauseParts.append(
                 '%s %s' % (attr.getColumnName(self.store), direction))
-
 
     def _sqlAndArgs(self, verb, subject):
         limitClause = []
@@ -312,7 +314,8 @@ class BaseQuery:
             limitClause.append(str(self.limit))
             if self.offset is not None:
                 if not isinstance(self.offset, int):
-                    raise TypeError("offset must be an integer: %r" % (self.offset,))
+                    raise TypeError(
+                        "offset must be an integer: %r" % (self.offset,))
                 limitClause.append('OFFSET')
                 limitClause.append(str(self.offset))
         else:
@@ -329,7 +332,6 @@ class BaseQuery:
             sqlParts.append(' '.join(limitClause))
         sqlstr = ' '.join(sqlParts)
         return (sqlstr, self.args)
-
 
     def _runQuery(self, verb, subject):
         # XXX ideally this should be creating an SQL cursor and iterating
@@ -351,11 +353,10 @@ class BaseQuery:
         i = 3
         frame = sys._getframe(i)
         while frame.f_code.co_filename == __file__:
-            #let's not get stuck in findOrCreate, etc
+            # let's not get stuck in findOrCreate, etc
             i += 1
             frame = sys._getframe(i)
         return (frame.f_code.co_filename, frame.f_lineno)
-
 
     def _selectStuff(self, verb='SELECT'):
         """
@@ -374,7 +375,6 @@ class BaseQuery:
         for row in sqlResults:
             yield self._massageData(row)
 
-
     def _massageData(self, row):
         """
         Subclasses must override this method to 'massage' the data received
@@ -385,7 +385,6 @@ class BaseQuery:
         returned from a call to sqlite.
         """
         raise NotImplementedError()
-
 
     def distinct(self):
         """
@@ -422,15 +421,14 @@ class BaseQuery:
         """
         return _DistinctQuery(self)
 
-
     def __iter__(self):
         """
         Iterate the results of this query.
         """
         return self._selectStuff('SELECT')
 
-
     _selfiter = None
+
     def __next__(self):
         """
         This method is deprecated, a holdover from when queries were iterators,
@@ -448,9 +446,9 @@ class BaseQuery:
         return next(self._selfiter)
 
 
-
 class _FakeItemForFilter:
     __legacy__ = False
+
     def __init__(self, store):
         self.store = store
 
@@ -464,6 +462,7 @@ def _isColumnUnique(col):
     """
     return isinstance(col, _StoreIDComparer)
 
+
 class ItemQuery(BaseQuery):
     """
     This class is a query whose results will be Item instances.  This is the
@@ -475,13 +474,12 @@ class ItemQuery(BaseQuery):
         Create an ItemQuery.  This is typically done via L{Store.query}.
         """
         BaseQuery.__init__(self, *a, **k)
-        self._queryTarget = (
-            self.tableClass.storeID.getColumnName(self.store) + ', ' + (
+        self._queryTarget = \
+            (self.tableClass.storeID.getColumnName(self.store) + ', ' + (
                 ', '.join(
                     [attrobj.getColumnName(self.store)
                      for name, attrobj in self.tableClass.getSchema()
                      ])))
-
 
     def paginate(self, pagesize=20):
         """
@@ -507,7 +505,8 @@ class ItemQuery(BaseQuery):
             sort = self.tableClass.storeID.ascending
             oc = list(sort.orderColumns())
         if len(oc) != 1:
-            raise RuntimeError("%d-column sorts not supported yet with paginate" %(len(oc),))
+            raise RuntimeError(
+                "%d-column sorts not supported yet with paginate" % (len(oc),))
         sortColumn = oc[0][0]
         if oc[0][1] == 'ASC':
             sortOp = operator.gt
@@ -522,8 +521,9 @@ class ItemQuery(BaseQuery):
         else:
             tiebreaker = self.tableClass.storeID
 
-        tied = lambda a, b: (sortColumn.__get__(a) ==
-                             sortColumn.__get__(b))
+        def tied(a, b):
+            return (sortColumn.__get__(a) == sortColumn.__get__(b))
+
         def _AND(a, b):
             if a is None:
                 return b
@@ -535,7 +535,8 @@ class ItemQuery(BaseQuery):
             if len(results) == 1:
                 # XXX TODO: reject 0 pagesize.  If the length of the result set
                 # is 1, there's no next result to test for a tie with, so we
-                # must be at the end, and we should just yield the result and finish.
+                # must be at the end, and we should just yield
+                # the result and finish.
                 yield results[0]
                 return
             for resultidx in range(len(results) - 1):
@@ -545,15 +546,16 @@ class ItemQuery(BaseQuery):
                 if tied(result, nextResult):
                     # Yield any ties first, in the appropriate order.
                     lastTieBreaker = tiebreaker.__get__(result)
-                    # Note that this query is _NOT_ limited: currently large ties
+                    # Note that this query is_NOT_limited: currently large ties
                     # will generate arbitrarily large amounts of work.
                     trq = self.store.query(
                         self.tableClass,
                         _AND(self.comparison,
                              sortColumn == sortColumn.__get__(result)))
                     tiedResults = list(trq)
-                    tiedResults.sort(key=lambda rslt: (sortColumn.__get__(result),
-                                                       tiebreaker.__get__(result)))
+                    tiedResults.sort(
+                        key=lambda rslt: (sortColumn.__get__(result),
+                                          tiebreaker.__get__(result)))
                     for result in tiedResults:
                         yield result
                     # re-start the query here ('result' is set to the
@@ -562,14 +564,15 @@ class ItemQuery(BaseQuery):
                 else:
                     yield result
 
-            lastSortValue = sortColumn.__get__(result) # hooray namespace pollution
+            lastSortValue = sortColumn.__get__(
+                result)  # hooray namespace pollution
             results = list(self.store.query(
-                    self.tableClass,
-                    _AND(self.comparison,
-                         sortOp(sortColumn,
-                                sortColumn.__get__(result))),
-                    sort=sort,
-                    limit=pagesize + 1))
+                self.tableClass,
+                _AND(self.comparison,
+                     sortOp(sortColumn,
+                            sortColumn.__get__(result))),
+                sort=sort,
+                limit=pagesize + 1))
 
     def _massageData(self, row):
         """
@@ -582,9 +585,9 @@ class ItemQuery(BaseQuery):
         @return: an instance of the type specified by this query.
         """
         result = self.store._loadedItem(self.tableClass, row[0], row[1:])
-        assert result.store is not None, "result %r has funky store" % (result,)
+        assert result.store is not None, \
+            "result %r has funky store" % (result,)
         return result
-
 
     def getColumn(self, attributeName, raw=False):
         """
@@ -615,34 +618,32 @@ class ItemQuery(BaseQuery):
                               attr,
                               raw)
 
-
     def count(self):
         rslt = self._runQuery(
             'SELECT',
-            'COUNT(' + self.tableClass.storeID.getColumnName(self.store)
-            + ')')
+            'COUNT(' + self.tableClass.storeID.getColumnName(self.store) + ')')
         assert len(rslt) == 1, 'more than one result: %r' % (rslt,)
         return rslt[0][0] or 0
-
 
     def deleteFromStore(self):
         """
         Delete all the Items which are found by this query.
         """
         if (self.limit is None and
-            not isinstance(self.sort, attributes.UnspecifiedOrdering)):
+                not isinstance(self.sort, attributes.UnspecifiedOrdering)):
             # The ORDER BY is pointless here, and SQLite complains about it.
             return self.cloneQuery(sort=None).deleteFromStore()
 
-        #We can do this the fast way or the slow way.
+        # We can do this the fast way or the slow way.
 
         # If there's a 'deleted' callback on the Item type or 'deleteFromStore'
         # is overridden, we have to do it the slow way.
-        deletedOverridden = (
-            self.tableClass.deleted.__func__ is not item.Item.deleted.__func__)
-        deleteFromStoreOverridden = (
-            self.tableClass.deleteFromStore.__func__ is not
-            item.Item.deleteFromStore.__func__)
+        deletedOverridden = \
+            (self.tableClass.deleted.__func__ is not
+             item.Item.deleted.__func__)
+        deleteFromStoreOverridden = \
+            (self.tableClass.deleteFromStore.__func__ is not
+             item.Item.deleteFromStore.__func__)
 
         if deletedOverridden or deleteFromStoreOverridden:
             for it in self:
@@ -655,7 +656,8 @@ class ItemQuery(BaseQuery):
             def itemsToDelete(attr):
                 return attr.oneOf(self.getColumn("storeID"))
 
-            if not item.allowDeletion(self.store, self.tableClass, itemsToDelete):
+            if not item.allowDeletion(self.store, self.tableClass,
+                                      itemsToDelete):
                 raise errors.DeletionDisallowed(
                     'Cannot delete item; '
                     'has referents with whenDeleted == reference.DISALLOW')
@@ -666,6 +668,7 @@ class ItemQuery(BaseQuery):
 
             # actually run the DELETE for the items in this query.
             self._runQuery('DELETE', "")
+
 
 class MultipleItemQuery(BaseQuery):
     """
@@ -693,7 +696,6 @@ class MultipleItemQuery(BaseQuery):
 
         # self.tableClass is a tuple of Item classes.
         for tableClass in self.tableClass:
-
             schema = tableClass.getSchema()
 
             # The extra 1 is oid
@@ -701,10 +703,10 @@ class MultipleItemQuery(BaseQuery):
 
             targets.append(
                 tableClass.storeID.getColumnName(self.store) + ', ' + (
-                ', '.join(
-                [attrobj.getColumnName(self.store)
-                 for name, attrobj in schema
-                 ])))
+                    ', '.join(
+                        [attrobj.getColumnName(self.store)
+                         for name, attrobj in schema
+                         ])))
 
         self._queryTarget = ', '.join(targets)
 
@@ -750,8 +752,9 @@ class MultipleItemQuery(BaseQuery):
 
             result = self.store._loadedItem(self.tableClass[i],
                                             row[offset],
-                                            row[offset+1:offset+numAttrs])
-            assert result.store is not None, "result %r has funky store" % (result,)
+                                            row[offset + 1:offset + numAttrs])
+            assert result.store is not None, \
+                "result %r has funky store" % (result,)
             resultBits.append(result)
 
             offset += numAttrs
@@ -768,7 +771,7 @@ class MultipleItemQuery(BaseQuery):
             self.store.checkpoint()
         target = ', '.join([
             tableClass.storeID.getColumnName(self.store)
-            for tableClass in self.tableClass ])
+            for tableClass in self.tableClass])
         sql, args = self._sqlAndArgs('SELECT', target)
         sql = 'SELECT COUNT(*) FROM (' + sql + ')'
         result = self.store.querySQL(sql, args)
@@ -781,13 +784,14 @@ class MultipleItemQuery(BaseQuery):
         """
         return _MultipleItemDistinctQuery(self)
 
+
+@implementer(iaxiom.IQuery)
 class _DistinctQuery(object):
     """
     A query for results excluding duplicates.
 
     Results from this query depend on the query it was initialized with.
     """
-    implements(iaxiom.IQuery)
 
     def __init__(self, query):
         """
@@ -801,15 +805,13 @@ class _DistinctQuery(object):
         self.store = query.store
         self.limit = query.limit
 
-
     def cloneQuery(self, limit=_noItem, sort=_noItem):
         """
-        Clone the original query which this distinct query wraps, and return a new
-        wrapper around that clone.
+        Clone the original query which this distinct query wraps,
+        and return a new wrapper around that clone.
         """
         newq = self.query.cloneQuery(limit=limit, sort=sort)
         return self.__class__(newq)
-
 
     def __iter__(self):
         """
@@ -819,7 +821,6 @@ class _DistinctQuery(object):
         query, whether they are items or attributes.
         """
         return self.query._selectStuff('SELECT DISTINCT')
-
 
     def count(self):
         """
@@ -853,7 +854,7 @@ class _MultipleItemDistinctQuery(_DistinctQuery):
             self.query.store.checkpoint()
         target = ', '.join([
             tableClass.storeID.getColumnName(self.query.store)
-            for tableClass in self.query.tableClass ])
+            for tableClass in self.query.tableClass])
         sql, args = self.query._sqlAndArgs(
             'SELECT DISTINCT',
             target)
@@ -865,12 +866,14 @@ class _MultipleItemDistinctQuery(_DistinctQuery):
 
 _noDefault = object()
 
+
 class AttributeQuery(BaseQuery):
     """
     A query for the value of a single attribute from an item class, so as to
     load only a single value rather than an instantiating an entire item when
     the value is all that is needed.
     """
+
     def __init__(self,
                  store,
                  tableClass,
@@ -885,9 +888,7 @@ class AttributeQuery(BaseQuery):
         self.raw = raw
         self._queryTarget = attribute.getColumnName(self.store)
 
-
     _cloneAttributes = BaseQuery._cloneAttributes + 'attribute raw'.split()
-
 
     def _massageData(self, row):
         """
@@ -904,16 +905,15 @@ class AttributeQuery(BaseQuery):
             return row[0]
         return self.attribute.outfilter(row[0], _FakeItemForFilter(self.store))
 
-
     def count(self):
         """
-        @return: the number of non-None values of this attribute specified by this query.
+        @return: the number of non-None values of this attribute
+        specified by this query.
         """
-        rslt = self._runQuery('SELECT', 'COUNT(%s)' % (self._queryTarget,)) or [(0,)]
+        rslt = self._runQuery('SELECT',
+                              'COUNT(%s)' % (self._queryTarget,)) or [(0,)]
         assert len(rslt) == 1, 'more than one result: %r' % (rslt,)
         return rslt[0][0]
-
-
 
     def sum(self):
         """
@@ -925,11 +925,11 @@ class AttributeQuery(BaseQuery):
 
         @return: a number or None.
         """
-        res = self._runQuery('SELECT', 'SUM(%s)' % (self._queryTarget,)) or [(0,)]
+        res = self._runQuery('SELECT', 'SUM(%s)' % (self._queryTarget,)) or [
+            (0,)]
         assert len(res) == 1, "more than one result: %r" % (res,)
         dbval = res[0][0] or 0
         return self.attribute.outfilter(dbval, _FakeItemForFilter(self.store))
-
 
     def average(self):
         """
@@ -941,18 +941,16 @@ class AttributeQuery(BaseQuery):
 
         @return: a L{float} representing the 'average' value of this column.
         """
-        rslt = self._runQuery('SELECT', 'AVG(%s)' % (self._queryTarget,)) or [(0,)]
+        rslt = self._runQuery('SELECT', 'AVG(%s)' %
+                              (self._queryTarget,)) or [(0,)]
         assert len(rslt) == 1, 'more than one result: %r' % (rslt,)
         return rslt[0][0]
-
 
     def max(self, default=_noDefault):
         return self._functionOnTarget('MAX', default)
 
-
     def min(self, default=_noDefault):
         return self._functionOnTarget('MIN', default)
-
 
     def _functionOnTarget(self, which, default):
         rslt = self._runQuery('SELECT', '%s(%s)' %
@@ -961,7 +959,7 @@ class AttributeQuery(BaseQuery):
         dbval = rslt[0][0]
         if dbval is None:
             if default is _noDefault:
-                raise ValueError('%s() on table with no items'%(which))
+                raise ValueError('%s() on table with no items' % (which))
             else:
                 return default
         return self.attribute.outfilter(dbval, _FakeItemForFilter(self.store))
@@ -1006,7 +1004,6 @@ def _schedulerServiceSpecialCase(empowered, pups):
     return None
 
 
-
 def _diffSchema(diskSchema, memorySchema):
     """
     Format a schema mismatch for human consumption.
@@ -1032,7 +1029,7 @@ def _diffSchema(diskSchema, memorySchema):
     return '\n'.join(diff)
 
 
-
+@implementer(iaxiom.IBeneficiary)
 class Store(Empowered):
     """
     I am a database that Axiom Items can be stored in.
@@ -1068,23 +1065,20 @@ class Store(Empowered):
         iaxiom.IBatchService: _storeBatchServiceSpecialCase,
         iaxiom.IScheduler: _schedulerServiceSpecialCase}
 
-    implements(iaxiom.IBeneficiary)
+    transaction = None  # set of objects changed in the current transaction
+    touched = None  # set of objects changed since the last checkpoint
 
-    transaction = None          # set of objects changed in the current transaction
-    touched = None              # set of objects changed since the last checkpoint
+    databaseName = 'main'  # can differ if database is attached to another
+    # database.
 
-    databaseName = 'main'       # can differ if database is attached to another
-                                # database.
+    dbdir = None  # FilePath to the Axiom database directory, or None for
+    # in-memory Stores.
+    filesdir = None  # FilePath to the filesystem-storage subdirectory of the
+    # database directory, or None for in-memory Stores.
 
-    dbdir = None # FilePath to the Axiom database directory, or None for
-                 # in-memory Stores.
-    filesdir = None # FilePath to the filesystem-storage subdirectory of the
-                    # database directory, or None for in-memory Stores.
-
-    store = property(lambda self: self) # I have a 'store' attribute because I
-                                        # am 'stored' within myself; this is
-                                        # also for references to use.
-
+    store = property(lambda self: self)  # I have a 'store' attribute because I
+    # am 'stored' within myself; this is
+    # also for references to use.
 
     # Counter indicating things are going on which disallows changes to the
     # database.  Callbacks dispatched to application code while this is
@@ -1115,19 +1109,19 @@ class Store(Empowered):
 
     storeID = STORE_SELF_ID
 
-
     def __init__(self, dbdir=None, filesdir=None, debug=False, parent=None,
                  idInParent=None, journalMode=None):
         """
         Create a store.
 
-        @param dbdir: A L{FilePath} to (or name of) an existing Axiom directory, or
-        directory that does not exist yet which will be created as this Store
-        is instantiated.  If unspecified, this database will be kept in memory.
+        @param dbdir: A L{FilePath} to (or name of) an existing Axiom directory
+        , or directory that does not exist yet which will be created as this
+        Store is instantiated. If unspecified, this database will be kept
+        in memory.
 
-        @param filesdir: A L{FilePath} to (or name of) a directory to keep files in for in-memory
-        stores. An exception will be raised if both this attribute and C{dbdir}
-        are specified.
+        @param filesdir: A L{FilePath} to (or name of) a directory to keep
+        files in for in-memory stores. An exception will be raised if both
+        this attribute and C{dbdir} are specified.
 
         @param debug: set to True if this Store should print out every SQL
         statement it sends to SQLite.
@@ -1154,23 +1148,24 @@ class Store(Empowered):
 
         self._inMemoryPowerups = {}
 
-        self._attachedChildren = {} # database name => child store object
+        self._attachedChildren = {}  # database name => child store object
 
-        self.statementCache = {} # non-normalized => normalized qmark SQL
-                                 # statements
+        self.statementCache = {}  # non-normalized => normalized qmark SQL
+        # statements
 
         self.activeTables = {}  # tables which have had items added/removed
-                                # this run
+        # this run
 
         self.objectCache = _fincache.FinalizingCache()
 
         self.tableQueries = {}  # map typename: query string w/ storeID
-                                # parameter.  a typename is a persistent
-                                # database handle for what we'll call a 'FQPN',
-                                # i.e. arg to namedAny.
+        # parameter.  a typename is a persistent
+        # database handle for what we'll call a 'FQPN',
+        # i.e. arg to namedAny.
 
-        self.typenameAndVersionToID = {} # map database-persistent typename and
-                                         # version to an oid in the types table
+        # line below note: map database-persistent typename and
+        self.typenameAndVersionToID = {}
+        # version to an oid in the types table
 
         self.typeToInsertSQLCache = {}
         self.typeToSelectSQLCache = {}
@@ -1183,14 +1178,12 @@ class Store(Empowered):
 
         self._axiom_service = None
 
-
         if self.parent is None:
             self._upgradeService = SchedulingService()
         else:
             # Substores should hook into their parent, since they shouldn't
             # expect to have their own substore service started.
             self._upgradeService = self.parent._upgradeService
-
 
         # OK!  Everything that can be set up without touching the filesystem
         # has been done.  Let's get ready to open the actual database...
@@ -1220,9 +1213,9 @@ class Store(Empowered):
 
             if not dbdir.isdir():
                 tempdbdir = dbdir.temporarySibling()
-                tempdbdir.makedirs() # maaaaaaaybe this is a bad idea, we
-                                     # probably shouldn't be doing this
-                                     # automatically.
+                tempdbdir.makedirs()  # maaaaaaaybe this is a bad idea, we
+                # probably shouldn't be doing this
+                # automatically.
                 for child in ('files', 'temp', 'run'):
                     tempdbdir.child(child).createDirectory()
                 self._initdb(tempdbdir.child('db.sqlite').path)
@@ -1230,12 +1223,12 @@ class Store(Empowered):
                 self.close(_report=False)
                 try:
                     tempdbdir.moveTo(dbdir)
-                except:
+                except Exception as e1:
                     _initialOpenFailure = Failure()
 
             try:
                 self._initdb(dbdir.child('db.sqlite').path)
-            except:
+            except Exception as e2:
                 if _initialOpenFailure is not None:
                     log.msg("Failed to initialize axiom database."
                             "  Possible cause of error: ")
@@ -1248,16 +1241,22 @@ class Store(Empowered):
         if self._upgradeManager.upgradesPending:
             # Automatically upgrade when possible.
             self._upgradeComplete = PendingEvent()
-            d = self._upgradeService.addIterator(self._upgradeManager.upgradeEverything())
+            d = self._upgradeService.addIterator(
+                self._upgradeManager.upgradeEverything())
+
             def logUpgradeFailure(aFailure):
                 if aFailure.check(errors.ItemUpgradeError):
-                    log.err(aFailure.value.originalFailure, 'Item upgrade error')
+                    log.err(aFailure.value.originalFailure,
+                            'Item upgrade error')
                 log.err(aFailure, "upgrading %r failed" % (self,))
                 return aFailure
+
             d.addErrback(logUpgradeFailure)
+
             def finishHim(resultOrFailure):
                 self._upgradeComplete.callback(resultOrFailure)
                 self._upgradeComplete = None
+
             d.addBoth(finishHim)
         else:
             self._upgradeComplete = None
@@ -1275,8 +1274,8 @@ class Store(Empowered):
         self._attachedChildren[databaseName] = child
         # ATTACH DATABASE statements can't use bind paramaters, blech.
         self.executeSQL("ATTACH DATABASE '%s' AS %s" % (
-                child.dbdir.child('db.sqlite').path,
-                databaseName,))
+            child.dbdir.child('db.sqlite').path,
+            databaseName,))
         return databaseName
 
     attachedToParent = False
@@ -1292,9 +1291,8 @@ class Store(Empowered):
         self.connection = self.parent.connection
         self.cursor = self.parent.cursor
 
-#     def detachFromParent(self):
-#         pass
-
+    #     def detachFromParent(self):
+    #         pass
 
     def _initSchema(self):
         # No point in even attempting to transactionalize this:
@@ -1302,7 +1300,6 @@ class Store(Empowered):
         # INDEX and those commit transactions silently anyway.
         for stmt in _schema.BASE_SCHEMA:
             self.executeSchemaSQL(stmt)
-
 
     def _startup(self):
         """
@@ -1312,11 +1309,14 @@ class Store(Empowered):
         """
         typesToCheck = []
 
-        for oid, module, typename, version in self.querySchemaSQL(_schema.ALL_TYPES):
+        for oid, module, typename, version in self.querySchemaSQL(
+                _schema.ALL_TYPES):
             if self.debug:
                 print()
                 print('SCHEMA:', oid, module, typename, version)
             if typename not in _typeNameToMostRecentClass:
+                if typename.startswith('axiom'):
+                    module = module
                 try:
                     namedAny(module)
                 except ValueError as err:
@@ -1351,7 +1351,6 @@ class Store(Empowered):
 
         self._upgradeManager.checkUpgradePaths()
 
-
     def _loadExistingIndexes(self):
         """
         Return a C{set} of the SQL indexes which already exist in the
@@ -1371,7 +1370,6 @@ class Store(Empowered):
                 "SELECT name FROM *DATABASE*.sqlite_master "
                 "WHERE type = 'index'"))
 
-
     def _initdb(self, dbfname):
         self.connection = Connection.fromDatabaseName(dbfname)
         self.cursor = self.connection.cursor()
@@ -1386,7 +1384,6 @@ class Store(Empowered):
             dbdir = '(in memory)'
 
         return "<Store {dbdir}@{id:#x}".format(dbdir=dbdir, id=id(self))
-
 
     def findOrCreate(self, userItemClass, __ifnew=None, **attrs):
         """
@@ -1452,7 +1449,8 @@ class Store(Empowered):
         assert len(path) > 0, "newFile requires a nonzero number of segments"
         if self.dbdir is None:
             if self.filesdir is None:
-                raise RuntimeError("This in-memory store has no file directory")
+                raise RuntimeError(
+                    "This in-memory store has no file directory")
             else:
                 tmpbase = self.filesdir
         else:
@@ -1465,7 +1463,6 @@ class Store(Empowered):
         for subdir in path:
             p = p.child(subdir)
         return p
-
 
     def _loadTypeSchema(self):
         """
@@ -1516,10 +1513,9 @@ class Store(Empowered):
             if key not in result:
                 result[key] = []
             result[key].append((
-                    attribute, sqltype, indexed,
-                    getAttribute(pythontype), docstring))
+                attribute, sqltype, indexed,
+                getAttribute(pythontype), docstring))
         return result
-
 
     def _checkTypeSchemaConsistency(self, actualType, onDiskSchema):
         """
@@ -1556,7 +1552,8 @@ class Store(Empowered):
                            for storedAttribute in onDiskSchema[key]]
         if inMemorySchema != persistedSchema:
             raise RuntimeError(
-                "Schema mismatch on already-loaded %r <%r> object version %d:\n%s" %
+                "Schema mismatch on already-loaded %r <%r> "
+                "object version %d:\n%s" %
                 (actualType, actualType.typeName, actualType.schemaVersion,
                  _diffSchema(persistedSchema, inMemorySchema)))
 
@@ -1567,7 +1564,6 @@ class Store(Empowered):
             raise RuntimeError(
                 "Memory version of %r is %d; database has newer" % (
                     actualType.typeName, key[1]))
-
 
     # finally find old versions of the data and prepare to upgrade it.
     def _prepareOldVersionOf(self, typename, version, persistedSchema):
@@ -1599,7 +1595,6 @@ class Store(Empowered):
         self._upgradeManager.queueTypeUpgrade(oldType)
         return oldType
 
-
     def whenFullyUpgraded(self):
         """
         Return a Deferred which fires when this Store has been fully upgraded.
@@ -1611,8 +1606,6 @@ class Store(Empowered):
 
     def getOldVersionOf(self, typename, version):
         return _legacyTypes[typename, version]
-
-
 
         # grab the schema for that version
         # look up upgraders which push it forward
@@ -1641,9 +1634,9 @@ class Store(Empowered):
         elif lr == 1:
             return results[0]
         else:
-            raise AssertionError("limit=2 database query returned 3+ results: ",
-                                 comparison, results)
-
+            raise AssertionError(
+                "limit=2 database query returned 3+ results: ",
+                comparison, results)
 
     def findFirst(self, tableClass, comparison=None,
                   offset=None, sort=None, default=None):
@@ -1730,6 +1723,7 @@ class Store(Empowered):
         args = (self, summableAttribute.type) + a
         return AttributeQuery(attribute=summableAttribute,
                               *args, **k).sum()
+
     def count(self, *a, **k):
         return self.query(*a, **k).count()
 
@@ -1759,9 +1753,11 @@ class Store(Empowered):
 
         @return: None.
         """
+
         class FakeItem:
             pass
-        _NEEDS_DEFAULT = object() # token for lookup failure
+
+        _NEEDS_DEFAULT = object()  # token for lookup failure
         fakeOSelf = FakeItem()
         fakeOSelf.store = self
         sql = itemType._baseInsertSQL(self)
@@ -1793,7 +1789,6 @@ class Store(Empowered):
                 self.objectCache.cache(storeID, result)
         return result
 
-
     def changed(self, item):
         """
         An item in this store was changed.  Add it to the current transaction's
@@ -1807,14 +1802,13 @@ class Store(Empowered):
             self.transaction.add(item)
             self.touched.add(item)
 
-
     def checkpoint(self):
         self._rejectChanges += 1
         try:
             for item in self.touched:
-                # XXX: it should be possible here, using various clever hacks, to
-                # automatically optimize functionally identical statements into
-                # executemany.
+                # XXX: it should be possible here, using various clever hacks,
+                # to  automatically optimize functionally identical
+                # statements into executemany.
                 item.checkpoint()
             self.touched.clear()
         finally:
@@ -1850,11 +1844,11 @@ class Store(Empowered):
             try:
                 result = f(*a, **k)
                 self.checkpoint()
-            except:
+            except Exception as e1:
                 exc = Failure()
                 try:
                     self.revert()
-                except:
+                except Exception as e2:
                     log.err(exc)
                     raise
                 raise
@@ -1871,7 +1865,7 @@ class Store(Empowered):
 
     def _begin(self):
         if self.debug:
-            print('<'*10, 'BEGIN', '>'*10)
+            print('<' * 10, 'BEGIN', '>' * 10)
         self.cursor.execute("BEGIN IMMEDIATE TRANSACTION")
         self._setupTxnState()
 
@@ -1890,12 +1884,11 @@ class Store(Empowered):
 
     def _commit(self):
         if self.debug:
-            print('*'*10, 'COMMIT', '*'*10)
+            print('*' * 10, 'COMMIT', '*' * 10)
         # self.connection.commit()
         self.cursor.execute("COMMIT")
         log.msg(interface=iaxiom.IStatEvent, stat_commits=1)
         self._postCommitHook()
-
 
     def _postCommitHook(self):
         self._rejectChanges += 1
@@ -1905,19 +1898,16 @@ class Store(Empowered):
         finally:
             self._rejectChanges -= 1
 
-
     def _rollback(self):
         if self.debug:
-            print('>'*10, 'ROLLBACK', '<'*10)
+            print('>' * 10, 'ROLLBACK', '<' * 10)
         # self.connection.rollback()
         self.cursor.execute("ROLLBACK")
         log.msg(interface=iaxiom.IStatEvent, stat_rollbacks=1)
 
-
     def revert(self):
         self._rollback()
         self._inMemoryRollback()
-
 
     def _inMemoryRollback(self):
         self._rejectChanges += 1
@@ -1934,7 +1924,7 @@ class Store(Empowered):
             for cache in (self.typeToInsertSQLCache,
                           self.typeToDeleteSQLCache,
                           self.typeToSelectSQLCache,
-                          self.typeToTableNameCache) :
+                          self.typeToTableNameCache):
                 if tableClass in cache:
                     del cache[tableClass]
             if tableClass.storeID in self.attrToColumnNameCache:
@@ -1945,7 +1935,6 @@ class Store(Empowered):
 
         for sub in list(self._attachedChildren.values()):
             sub._inMemoryRollback()
-
 
     def _cleanupTxnState(self):
         self.autocommit = True
@@ -1972,7 +1961,7 @@ class Store(Empowered):
 
     def avgms(self, l):
         return 'count: %d avg: %dus' % (len(l),
-                                        int( (sum(l)/len(l)) * 1000000.),)
+                                        int((sum(l) / len(l)) * 1000000.),)
 
     def _indexNameOf(self, tableClass, attrname):
         """
@@ -1993,10 +1982,8 @@ class Store(Empowered):
                                        tableClass.schemaVersion,
                                        '_'.join(attrname))
 
-
     def _tableNameFor(self, typename, version):
         return "%s.item_%s_v%d" % (self.databaseName, typename, version)
-
 
     def getTableName(self, tableClass):
         """
@@ -2011,15 +1998,17 @@ class Store(Empowered):
 
         @return: a string
         """
-        if not (isinstance(tableClass, type) and issubclass(tableClass, item.Item)):
-            raise errors.ItemClassesOnly("Only subclasses of Item have table names.")
+        if not (isinstance(tableClass, type) and issubclass(tableClass,
+                                                            item.Item)):
+            raise errors.ItemClassesOnly(
+                "Only subclasses of Item have table names.")
 
         if tableClass not in self.typeToTableNameCache:
-            self.typeToTableNameCache[tableClass] = self._tableNameFor(tableClass.typeName, tableClass.schemaVersion)
+            self.typeToTableNameCache[tableClass] = self._tableNameFor(
+                tableClass.typeName, tableClass.schemaVersion)
             # make sure the table exists
             self.getTypeID(tableClass)
         return self.typeToTableNameCache[tableClass]
-
 
     def getShortColumnName(self, attribute):
         """
@@ -2041,7 +2030,6 @@ class Store(Empowered):
             return 'oid'
         return '[' + attribute.attrname + ']'
 
-
     def getColumnName(self, attribute):
         """
         Retreive the fully qualified column name for a particular
@@ -2060,7 +2048,6 @@ class Store(Empowered):
                  self.getShortColumnName(attribute)))
         return self.attrToColumnNameCache[attribute]
 
-
     def getTypeID(self, tableClass):
         """
         Retrieve the typeID associated with a particular table in the
@@ -2077,7 +2064,6 @@ class Store(Empowered):
         if key in self.typenameAndVersionToID:
             return self.typenameAndVersionToID[key]
         return self.transact(self._maybeCreateTable, tableClass, key)
-
 
     def _maybeCreateTable(self, tableClass, key):
         """
@@ -2112,8 +2098,10 @@ class Store(Empowered):
                           (atr.getShortColumnName(self), atr.sqltype))
 
         if len(sqlarg) == 0:
-            # XXX should be raised way earlier, in the class definition or something
-            raise NoEmptyItems("%r did not define any attributes" % (tableClass,))
+            # XXX should be raised way earlier,
+            # in the class definition or something
+            raise NoEmptyItems(
+                "%r did not define any attributes" % (tableClass,))
 
         sqlstr.append(', '.join(sqlarg))
         sqlstr.append(')')
@@ -2126,7 +2114,6 @@ class Store(Empowered):
             # since then.
             self._startup()
             return self.typenameAndVersionToID[key]
-
 
         typeID = self.executeSchemaSQL(_schema.CREATE_TYPE,
                                        [tableClass.typeName,
@@ -2164,7 +2151,6 @@ class Store(Empowered):
 
         return typeID
 
-
     def _createIndexesFor(self, tableClass, extantIndexes):
         """
         Create any indexes which don't exist and are required by the schema
@@ -2184,17 +2170,22 @@ class Store(Empowered):
             indexes = set()
             for nam, atr in tableClass.getSchema():
                 if atr.indexed:
-                    indexes.add(((atr.getShortColumnName(self),), (atr.attrname,)))
+                    indexes.add(
+                        ((atr.getShortColumnName(self),), (atr.attrname,)))
                 for compound in atr.compoundIndexes:
-                    indexes.add((tuple(inatr.getShortColumnName(self) for inatr in compound),
-                                 tuple(inatr.attrname for inatr in compound)))
+                    indexes.add(
+                        (tuple(
+                            inatr.getShortColumnName(
+                                self) for inatr in compound),
+                         tuple(inatr.attrname for inatr in compound)))
             _requiredTableIndexes[tableClass] = indexes
 
         # _ZOMFG_ SQL is such a piece of _shit_: you can't fully qualify the
         # table name in CREATE INDEX statements because the _INDEX_ is fully
         # qualified!
 
-        indexColumnPrefix = '.'.join(self.getTableName(tableClass).split(".")[1:])
+        indexColumnPrefix = '.'.join(
+            self.getTableName(tableClass).split(".")[1:])
 
         for (indexColumns, indexAttrs) in indexes:
             nameOfIndex = self._indexNameOf(tableClass, indexAttrs)
@@ -2205,14 +2196,12 @@ class Store(Empowered):
                 ', '.join(indexColumns))
             self.createSQL(csql)
 
-
     def getTableQuery(self, typename, version):
         if (typename, version) not in self.tableQueries:
             query = 'SELECT * FROM %s WHERE oid = ?' % (
-                self._tableNameFor(typename, version), )
+                self._tableNameFor(typename, version),)
             self.tableQueries[typename, version] = query
         return self.tableQueries[typename, version]
-
 
     def getItemByID(self, storeID, default=_noItem, autoUpgrade=True):
         """
@@ -2247,7 +2236,7 @@ class Store(Empowered):
 
         if not isinstance(storeID, int):
             raise TypeError("storeID *must* be an int or long, not %r" % (
-                    type(storeID).__name__,))
+                type(storeID).__name__,))
         if storeID == STORE_SELF_ID:
             return self
         try:
@@ -2256,7 +2245,7 @@ class Store(Empowered):
             pass
         log.msg(interface=iaxiom.IStatEvent, stat_cache_misses=1, key=storeID)
         results = self.querySchemaSQL(_schema.TYPEOF_QUERY, [storeID])
-        assert (len(results) in [1, 0]),\
+        assert (len(results) in [1, 0]), \
             "Database panic: more than one result for TYPEOF!"
         if results:
             typename, module, version = results[0]
@@ -2265,7 +2254,8 @@ class Store(Empowered):
                                   [storeID])
             if len(attrs) != 1:
                 if default is _noItem:
-                    raise errors.ItemNotFound("No results for known-to-be-good object")
+                    raise errors.ItemNotFound(
+                        "No results for known-to-be-good object")
                 return default
             attrs = attrs[0]
             useMostRecent = False
@@ -2282,21 +2272,23 @@ class Store(Empowered):
                 # OK, all the modules have been loaded now, everything
                 # verified.
                 if _typeIsTotallyUnknown(typename, version):
-
                     # If there is STILL no inkling of it anywhere, we are
                     # almost certainly boned.  Let's tell the user in a
                     # structured way, at least.
                     raise errors.UnknownItemType(
-                        "cannot load unknown schema/version pair: %r %r - id: %r" %
-                        (typename, version, storeID))
+                        "cannot load unknown schema/version pair: "
+                        "%r %r - id: %r" % (typename, version, storeID))
 
             if typename in _typeNameToMostRecentClass:
                 moreRecentAvailable = True
                 mostRecent = _typeNameToMostRecentClass[typename]
 
                 if mostRecent.schemaVersion < version:
-                    raise RuntimeError("%s:%d - was found in the database and most recent %s is %d" %
-                                       (typename, version, typename, mostRecent.schemaVersion))
+                    raise RuntimeError(
+                        "%s:%d - was found in the database and most recent "
+                        "%s is %d" %
+                        (typename, version, typename, mostRecent.schemaVersion)
+                    )
                 if mostRecent.schemaVersion == version:
                     useMostRecent = True
             if useMostRecent:
@@ -2317,11 +2309,9 @@ class Store(Empowered):
             raise KeyError(storeID)
         return default
 
-
     def querySchemaSQL(self, sql, args=()):
         sql = sql.replace("*DATABASE*", self.databaseName)
         return self.querySQL(sql, args)
-
 
     def querySQL(self, sql, args=()):
         """For use with SELECT (or SELECT-like PRAGMA) statements.
@@ -2331,7 +2321,6 @@ class Store(Empowered):
         else:
             result = self._queryandfetch(sql, args)
         return result
-
 
     def _queryandfetch(self, sql, args):
         if self.debug:
@@ -2349,7 +2338,6 @@ class Store(Empowered):
             print('  result:', result)
         return result
 
-
     def createSQL(self, sql, args=()):
         """
         For use with auto-committing statements such as CREATE TABLE or CREATE
@@ -2363,7 +2351,6 @@ class Store(Empowered):
             log.msg(sql)
             # import traceback; traceback.print_stack()
 
-
     def _execSQL(self, sql, args):
         if self.debug:
             rows = timeinto(self.execTimes, self._queryandfetch, sql, args)
@@ -2372,11 +2359,9 @@ class Store(Empowered):
         assert not rows
         return sql
 
-
     def executeSchemaSQL(self, sql, args=()):
         sql = sql.replace("*DATABASE*", self.databaseName)
         return self.executeSQL(sql, args)
-
 
     def executeSQL(self, sql, args=()):
         """
@@ -2387,6 +2372,7 @@ class Store(Empowered):
         if self.executedThisTransaction is not None:
             self.executedThisTransaction.append((result, sql, args))
         return result
+
 
 # This isn't actually useful any more.  It turns out that the pysqlite
 # documentation is confusingly worded; it's perfectly possible to create tables
@@ -2418,6 +2404,7 @@ def timeinto(l, f, *a, **k):
         now = time.time()
         elapsed = now - then
         l.append(elapsed)
+
 
 queryTimes = []
 execTimes = []

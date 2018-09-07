@@ -5,6 +5,7 @@ from axiom.item import Item
 
 OLD_VALUE = 69
 
+
 class Referrer(Item):
     """
     An item which just refers to another kind of item which will be upgraded.

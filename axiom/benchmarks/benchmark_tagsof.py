@@ -1,19 +1,15 @@
-
 """
 Benchmark the tagsOf method of L{axiom.tags.Catalog}
 """
 
-import time, sys
-
-from epsilon.scripts import benchmark
-
 from axiom import store, item, attributes, tags
+from epsilon.scripts import benchmark
 
 N = 30
 
+
 class TaggedObject(item.Item):
     name = attributes.text()
-
 
 
 def main():
@@ -21,15 +17,18 @@ def main():
     c = tags.Catalog(store=s)
 
     objects = []
+
     def createObjects():
         for x in range(N):
             objects.append(TaggedObject(store=s))
+
     s.transact(createObjects)
 
     def tagObjects():
         for o in objects:
             for x in range(N):
                 c.tag(o, str(x))
+
     s.transact(tagObjects)
 
     def getTags():
@@ -41,7 +40,6 @@ def main():
     benchmark.start()
     s.transact(getTags)
     benchmark.stop()
-
 
 
 if __name__ == '__main__':

@@ -1,26 +1,26 @@
-
 """
 Test upgrading L{_SubSchedulerParentHook} from version 2 to 3.
 """
 
-from axiom.test.historic.stubloader import StubbedTest
-
+from axiom.dependency import _DependencyConnector
 from axiom.scheduler import _SubSchedulerParentHook
 from axiom.substore import SubStore
-from axiom.dependency import _DependencyConnector
+from axiom.test.historic.stubloader import StubbedTest
 
 
 class SubSchedulerParentHookUpgradeTests(StubbedTest):
     """
     Test upgrading L{_SubSchedulerParentHook} from version 2 to 3.
     """
+
     def setUp(self):
         d = StubbedTest.setUp(self)
+
         def cbSetUp(ignored):
             self.hook = self.store.findUnique(_SubSchedulerParentHook)
+
         d.addCallback(cbSetUp)
         return d
-
 
     def test_attributesCopied(self):
         """
@@ -31,7 +31,6 @@ class SubSchedulerParentHookUpgradeTests(StubbedTest):
         self.assertIdentical(
             self.hook.subStore, self.store.findUnique(SubStore))
 
-
     def test_uninstalled(self):
         """
         The record of the installation of L{_SubSchedulerParentHook} on the
@@ -39,6 +38,6 @@ class SubSchedulerParentHookUpgradeTests(StubbedTest):
         """
         self.assertEqual(
             list(self.store.query(
-                    _DependencyConnector,
-                    _DependencyConnector.installee == self.hook)),
+                _DependencyConnector,
+                _DependencyConnector.installee == self.hook)),
             [])

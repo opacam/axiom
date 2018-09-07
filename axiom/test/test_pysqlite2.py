@@ -4,8 +4,10 @@ Test cases for PySQLite2-specific parts of the backend.
 
 from twisted.trial.unittest import TestCase
 
-from axiom._pysqlite2 import OperationalError, Connection
-from axiom.test.cursortest import ConnectionTestCaseMixin, StubConnection
+from axiom._pysqlite2 import OperationalError, \
+    Connection
+from axiom.test.cursortest import ConnectionTestCaseMixin, \
+    StubConnection
 
 
 class PySQLite2StubConnection(StubConnection):
@@ -19,10 +21,8 @@ class ConnectionTestCase(ConnectionTestCaseMixin, TestCase):
     def createStubConnection(self, *a, **kw):
         return PySQLite2StubConnection(*a, **kw)
 
-
     def createAxiomConnection(self, underlyingConnection, *a, **kw):
         return Connection(underlyingConnection, *a, **kw)
-
 
     def createRealConnection(self):
         """

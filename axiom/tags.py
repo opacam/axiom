@@ -1,8 +1,8 @@
-
+from axiom.attributes import \
+    text, reference, integer, AND, timestamp
+from axiom.item import Item
 from epsilon.extime import Time
 
-from axiom.item import Item
-from axiom.attributes import text, reference, integer, AND, timestamp
 
 class Tag(Item):
     typeName = 'tag'
@@ -30,7 +30,6 @@ class Tag(Item):
     """)
 
 
-
 class _TagName(Item):
     """
     Helper class to make Catalog.tagNames very fast.  One of these is created
@@ -48,9 +47,7 @@ class _TagName(Item):
     """)
 
 
-
 class Catalog(Item):
-
     typeName = 'tag_catalog'
     schemaVersion = 2
 
@@ -70,7 +67,8 @@ class Catalog(Item):
                                     Tag.catalog == self)):
             return
 
-        # if the tag doesn't exist, maybe we need to create a new tagname object
+        # if the tag doesn't exist, maybe we
+        # need to create a new tagname object
         self.store.findOrCreate(_TagName, name=tagName, catalog=self)
 
         # Increment only if we are creating a new tag
@@ -79,14 +77,13 @@ class Catalog(Item):
             name=tagName, catalog=self,
             created=Time(), tagger=tagger)
 
-
     def tagNames(self):
         """
         Return an iterator of unicode strings - the unique tag names which have
         been applied objects in this catalog.
         """
-        return self.store.query(_TagName, _TagName.catalog == self).getColumn("name")
-
+        return self.store.query(_TagName, _TagName.catalog == self).getColumn(
+            "name")
 
     def tagsOf(self, obj):
         """
@@ -98,13 +95,11 @@ class Catalog(Item):
             AND(Tag.catalog == self,
                 Tag.object == obj)).getColumn("name")
 
-
     def objectsIn(self, tagName):
         return self.store.query(
             Tag,
             AND(Tag.catalog == self,
                 Tag.name == tagName)).getColumn("object")
-
 
 
 def upgradeCatalog1to2(oldCatalog):
@@ -121,5 +116,7 @@ def upgradeCatalog1to2(oldCatalog):
         _TagName(store=newCatalog.store, catalog=newCatalog, name=t)
     return newCatalog
 
+
 from axiom.upgrade import registerUpgrader
+
 registerUpgrader(upgradeCatalog1to2, 'tag_catalog', 1, 2)

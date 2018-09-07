@@ -5,9 +5,10 @@ import os
 from decimal import Decimal
 
 from epsilon import hotfix
+
 hotfix.require('twisted', 'filepath_copyTo')
 
-from zope.interface import implements
+from zope.interface import implementer
 
 from twisted.python import filepath
 from twisted.python.deprecate import deprecated
@@ -18,11 +19,13 @@ from epsilon.extime import Time
 
 from axiom.slotmachine import Attribute as inmemory
 
-from axiom.errors import NoCrossStoreReferences, BrokenReference
+from axiom.errors import \
+    NoCrossStoreReferences, BrokenReference
 
-from axiom.iaxiom import IComparison, IOrdering, IColumn, IQuery
+from axiom.iaxiom import \
+    IComparison, IOrdering, IColumn, IQuery
 
-_NEEDS_FETCH = object()         # token indicating that a value was not found
+_NEEDS_FETCH = object()  # token indicating that a value was not found
 
 __metaclass__ = type
 
@@ -32,32 +35,27 @@ class _ComparisonOperatorMuxer:
     Collapse comparison operations into calls to a single method with varying
     arguments.
     """
+
     def compare(self, other, op):
         """
         Override this in a subclass.
         """
         raise NotImplementedError()
 
-
     def __eq__(self, other):
         return self.compare(other, '=')
-
 
     def __ne__(self, other):
         return self.compare(other, '!=')
 
-
     def __gt__(self, other):
         return self.compare(other, '>')
-
 
     def __lt__(self, other):
         return self.compare(other, '<')
 
-
     def __ge__(self, other):
         return self.compare(other, '>=')
-
 
     def __le__(self, other):
         return self.compare(other, '<=')
@@ -81,12 +79,12 @@ def compare(left, right, op):
         return AttributeValueComparison(left, op, right)
 
 
-
 class _MatchingOperationMuxer:
     """
     Collapse string matching operations into calls to a single method with
     varying arguments.
     """
+
     def _like(self, negate, firstOther, *others):
         others = (firstOther,) + others
         likeParts = []
@@ -108,32 +106,29 @@ class _MatchingOperationMuxer:
 
         return LikeComparison(self, negate, likeParts)
 
-
     def like(self, *others):
         return self._like(False, *others)
-
 
     def notLike(self, *others):
         return self._like(True, *others)
 
-
     def startswith(self, other):
         return self._like(False, other, '%')
-
 
     def endswith(self, other):
         return self._like(False, '%', other)
 
 
-
 _ASC = 'ASC'
 _DESC = 'DESC'
+
 
 class _OrderingMixin:
     """
     Provide the C{ascending} and C{descending} attributes to specify sort
     direction.
     """
+
     def _asc(self):
         return SimpleOrdering(self, _ASC)
 
@@ -142,7 +137,6 @@ class _OrderingMixin:
 
     desc = descending = property(_desc)
     asc = ascending = property(_asc)
-
 
 
 class _ContainableMixin:
@@ -156,10 +150,8 @@ class _ContainableMixin:
         """
         return SequenceComparison(self, seq, negate)
 
-
     def notOneOf(self, seq):
         return self.oneOf(seq, negate=True)
-
 
 
 class Comparable(_ContainableMixin, _ComparisonOperatorMuxer,
@@ -177,13 +169,12 @@ class Comparable(_ContainableMixin, _ComparisonOperatorMuxer,
         return compare(self, other, sqlop)
 
 
-
+@implementer(IOrdering)
 class SimpleOrdering:
     """
     Currently this class is mostly internal.  More documentation will follow as
     its interface is finalized.
     """
-    implements(IOrdering)
 
     # maybe this will be a useful public API, for the query something
     # something.
@@ -195,14 +186,11 @@ class SimpleOrdering:
         self.attribute = attribute
         self.direction = direction
 
-
     def orderColumns(self):
         return [(self.attribute, self.direction)]
 
-
     def __repr__(self):
         return repr(self.attribute) + self.direction
-
 
     def __add__(self, other):
         if isinstance(other, SimpleOrdering):
@@ -211,7 +199,6 @@ class SimpleOrdering:
             return CompoundOrdering([self] + list(other))
         else:
             return NotImplemented
-
 
     def __radd__(self, other):
         if isinstance(other, SimpleOrdering):
@@ -222,19 +209,17 @@ class SimpleOrdering:
             return NotImplemented
 
 
+@implementer(IOrdering)
 class CompoundOrdering:
     """
     List of SimpleOrdering instances.
     """
-    implements(IOrdering)
 
     def __init__(self, seq):
         self.simpleOrderings = list(seq)
 
-
     def __repr__(self):
         return self.__class__.__name__ + '(' + repr(self.simpleOrderings) + ')'
-
 
     def __add__(self, other):
         """
@@ -243,14 +228,14 @@ class CompoundOrdering:
         yet.
         """
         if isinstance(other, CompoundOrdering):
-            return CompoundOrdering(self.simpleOrderings + other.simpleOrderings)
+            return CompoundOrdering(
+                self.simpleOrderings + other.simpleOrderings)
         elif isinstance(other, SimpleOrdering):
             return CompoundOrdering(self.simpleOrderings + [other])
         elif isinstance(other, (list, tuple)):
             return CompoundOrdering(self.simpleOrderings + list(other))
         else:
             return NotImplemented
-
 
     def __radd__(self, other):
         """
@@ -259,14 +244,14 @@ class CompoundOrdering:
         yet.
         """
         if isinstance(other, CompoundOrdering):
-            return CompoundOrdering(other.simpleOrderings + self.simpleOrderings)
+            return CompoundOrdering(
+                other.simpleOrderings + self.simpleOrderings)
         elif isinstance(other, SimpleOrdering):
             return CompoundOrdering([other] + self.simpleOrderings)
         elif isinstance(other, (list, tuple)):
             return CompoundOrdering(list(other) + self.simpleOrderings)
         else:
             return NotImplemented
-
 
     def orderColumns(self):
         x = []
@@ -275,9 +260,8 @@ class CompoundOrdering:
         return x
 
 
-
+@implementer(IOrdering)
 class UnspecifiedOrdering:
-    implements(IOrdering)
 
     def __init__(self, null):
         pass
@@ -286,7 +270,6 @@ class UnspecifiedOrdering:
         return IOrdering(other, NotImplemented)
 
     __radd__ = __add__
-
 
     def orderColumns(self):
         return []
@@ -297,10 +280,13 @@ registerAdapter(CompoundOrdering, tuple, IOrdering)
 registerAdapter(UnspecifiedOrdering, type(None), IOrdering)
 registerAdapter(SimpleOrdering, Comparable, IOrdering)
 
+
 def compoundIndex(*columns):
     for column in columns:
         column.compoundIndexes.append(columns)
 
+
+@implementer(IColumn)
 class SQLAttribute(inmemory, Comparable):
     """
     Abstract superclass of all attributes.
@@ -312,11 +298,11 @@ class SQLAttribute(inmemory, Comparable):
 
     @ivar default: The value used for this attribute, if no value is specified.
     """
-    implements(IColumn)
 
     sqltype = None
 
-    def __init__(self, doc='', indexed=False, default=None, allowNone=True, defaultFactory=None):
+    def __init__(self, doc='', indexed=False, default=None, allowNone=True,
+                 defaultFactory=None):
         inmemory.__init__(self, doc)
         self.indexed = indexed
         self.compoundIndexes = []
@@ -332,18 +318,14 @@ class SQLAttribute(inmemory, Comparable):
             return self.defaultFactory()
         return self.default
 
-
     def reprFor(self, oself):
         return repr(self.__get__(oself))
-
 
     def getShortColumnName(self, store):
         return store.getShortColumnName(self)
 
-
     def getColumnName(self, store):
         return store.getColumnName(self)
-
 
     def prepareInsert(self, oself, store):
         """
@@ -359,7 +341,6 @@ class SQLAttribute(inmemory, Comparable):
         """
 
         raise NotImplementedError()
-
 
     def infilter(self, pyval, oself, store):
         """
@@ -391,22 +372,23 @@ class SQLAttribute(inmemory, Comparable):
         yield self.underlying
         yield self.dbunderlying
 
-
     def fullyQualifiedName(self):
         return '.'.join([self.modname,
                          self.classname,
                          self.attrname])
 
     def __repr__(self):
-        return '<%s %s>' % ( self.__class__.__name__, self.fullyQualifiedName())
+        return '<%s %s>' % (self.__class__.__name__, self.fullyQualifiedName())
 
     def type():
         def get(self):
             if self._type is None:
                 from twisted.python.reflect import namedAny
-                self._type = namedAny(self.modname+'.'+self.classname)
+                self._type = namedAny(self.modname + '.' + self.classname)
             return self._type
+
         return get,
+
     _type = None
     type = property(*type())
 
@@ -466,9 +448,9 @@ class SQLAttribute(inmemory, Comparable):
         @param dbval: the underlying database value which was retrieved.
         """
         setattr(oself, self.dbunderlying, dbval)
-        delattr(oself, self.underlying) # member_descriptors don't raise
-                                        # attribute errors; what gives?  good
-                                        # for us, I guess.
+        delattr(oself, self.underlying)  # member_descriptors don't raise
+        # attribute errors; what gives?  good
+        # for us, I guess.
 
     def _convertPyval(self, oself, pyval):
         """
@@ -482,7 +464,7 @@ class SQLAttribute(inmemory, Comparable):
         # convert to dbval later, I guess?
         if pyval is None and not self.allowNone:
             raise TypeError("attribute [%s.%s = %s()] must not be None" % (
-                    self.classname, self.attrname, self.__class__.__name__))
+                self.classname, self.attrname, self.__class__.__name__))
 
         return self.infilter(pyval, oself, oself.store)
 
@@ -501,9 +483,13 @@ class SQLAttribute(inmemory, Comparable):
             finally:
                 st._rejectChanges -= 1
 
+    def __hash__(self):
+        return hash(self.fullyQualifiedName())
 
+
+@implementer(IComparison)
 class TwoAttributeComparison:
-    implements(IComparison)
+
     def __init__(self, leftAttribute, operationString, rightAttribute):
         self.leftAttribute = leftAttribute
         self.operationString = operationString
@@ -512,7 +498,7 @@ class TwoAttributeComparison:
     def getQuery(self, store):
         sql = ('(%s %s %s)' % (self.leftAttribute.getColumnName(store),
                                self.operationString,
-                               self.rightAttribute.getColumnName(store)) )
+                               self.rightAttribute.getColumnName(store)))
         return sql
 
     def getInvolvedTables(self):
@@ -521,10 +507,8 @@ class TwoAttributeComparison:
             tables.append(self.rightAttribute.type)
         return tables
 
-
     def getArgs(self, store):
         return []
-
 
     def __repr__(self):
         return ' '.join((self.leftAttribute.fullyQualifiedName(),
@@ -532,8 +516,9 @@ class TwoAttributeComparison:
                          self.rightAttribute.fullyQualifiedName()))
 
 
+@implementer(IComparison)
 class AttributeValueComparison:
-    implements(IComparison)
+
     def __init__(self, attribute, operationString, value):
         self.attribute = attribute
         self.operationString = operationString
@@ -554,8 +539,10 @@ class AttributeValueComparison:
                          self.operationString,
                          repr(self.value)))
 
+
+@implementer(IComparison)
 class NullComparison:
-    implements(IComparison)
+
     def __init__(self, attribute, negate=False):
         self.attribute = attribute
         self.negate = negate
@@ -574,6 +561,7 @@ class NullComparison:
     def getInvolvedTables(self):
         return [self.attribute.type]
 
+
 class LikeFragment:
     def getLikeArgs(self):
         return []
@@ -584,9 +572,11 @@ class LikeFragment:
     def getLikeTables(self):
         return []
 
+
 class LikeNull(LikeFragment):
     def getLikeQuery(self, st):
         return "NULL"
+
 
 class LikeValue(LikeFragment):
     def __init__(self, value):
@@ -597,6 +587,7 @@ class LikeValue(LikeFragment):
 
     def getLikeArgs(self):
         return [self.value]
+
 
 class LikeColumn(LikeFragment):
     def __init__(self, attribute):
@@ -609,8 +600,8 @@ class LikeColumn(LikeFragment):
         return [self.attribute.type]
 
 
+@implementer(IComparison)
 class LikeComparison:
-    implements(IComparison)
     # Not AggregateComparison or AttributeValueComparison because there is a
     # different, optimized syntax for 'or'.  WTF is wrong with you, SQL??
 
@@ -623,7 +614,7 @@ class LikeComparison:
         tables = [self.attribute.type]
         for lf in self.likeParts:
             tables.extend([
-                    t for t in lf.getLikeTables() if t not in tables])
+                t for t in lf.getLikeTables() if t not in tables])
         return tables
 
     def getQuery(self, store):
@@ -637,33 +628,32 @@ class LikeComparison:
         return sql
 
     def getArgs(self, store):
-        l = []
+        al = []
         for lf in self.likeParts:
             for pyval in lf.getLikeArgs():
-                l.append(
+                al.append(
                     self.attribute.infilter(
                         pyval, None, store))
-        return l
+        return al
 
 
-
+@implementer(IComparison)
 class AggregateComparison:
     """
     Abstract base class for compound comparisons that aggregate other
     comparisons - currently only used for AND and OR comparisons.
     """
 
-    implements(IComparison)
     operator = None
 
     def __init__(self, *conditions):
         self.conditions = conditions
         if self.operator is None:
             raise NotImplementedError('%s cannot be used; you want AND or OR.'
-                                        % self.__class__.__name__)
+                                      % self.__class__.__name__)
         if not conditions:
             raise ValueError('%s condition requires at least one argument'
-                               % self.operator)
+                             % self.operator)
 
     def getQuery(self, store):
         oper = ' %s ' % self.operator
@@ -680,7 +670,7 @@ class AggregateComparison:
         tables = []
         for cond in self.conditions:
             tables.extend([
-                    t for t in cond.getInvolvedTables() if t not in tables])
+                t for t in cond.getInvolvedTables() if t not in tables])
         return tables
 
     def __repr__(self):
@@ -688,9 +678,8 @@ class AggregateComparison:
                            ', '.join(map(repr, self.conditions)))
 
 
-
+@implementer(IComparison)
 class SequenceComparison:
-    implements(IComparison)
 
     def __init__(self, attribute, container, negate):
         self.attribute = attribute
@@ -707,14 +696,12 @@ class SequenceComparison:
             self.containerClause = self._sequenceContainer
             self.getArgs = self._sequenceArgs
 
-
     def _columnContainer(self, store):
         """
         Return the fully qualified name of the column being examined so as
         to push all of the containment testing into the database.
         """
         return self.container.getColumnName(store)
-
 
     def _columnArgs(self, store):
         """
@@ -723,9 +710,9 @@ class SequenceComparison:
         """
         return []
 
-
     _subselectSQL = None
     _subselectArgs = None
+
     def _queryContainer(self, store):
         """
         Generate and cache the subselect SQL and its arguments.  Return the
@@ -737,7 +724,6 @@ class SequenceComparison:
             self._subselectSQL, self._subselectArgs = sql, args
         return self._subselectSQL
 
-
     def _queryArgs(self, store):
         """
         Make sure subselect arguments have been generated and then return
@@ -746,8 +732,8 @@ class SequenceComparison:
         self._queryContainer(store)
         return self._subselectArgs
 
-
     _sequence = None
+
     def _sequenceContainer(self, store):
         """
         Smash whatever we got into a list and save the result in case we are
@@ -759,15 +745,14 @@ class SequenceComparison:
             self._clause = ', '.join(['?'] * len(self._sequence))
         return self._clause
 
-
     def _sequenceArgs(self, store):
         """
         Filter each element of the data using the attribute type being
         tested for containment and hand back the resulting list.
         """
-        self._sequenceContainer(store) # Force _sequence to be valid
-        return [self.attribute.infilter(pyval, None, store) for pyval in self._sequence]
-
+        self._sequenceContainer(store)  # Force _sequence to be valid
+        return [self.attribute.infilter(pyval, None, store) for pyval in
+                self._sequence]
 
     # IComparison - getArgs is assigned as an instance attribute
     def getQuery(self, store):
@@ -776,10 +761,8 @@ class SequenceComparison:
             self.negate and 'NOT ' or '',
             self.containerClause(store))
 
-
     def getInvolvedTables(self):
         return [self.attribute.type]
-
 
 
 class AND(AggregateComparison):
@@ -788,6 +771,7 @@ class AND(AggregateComparison):
     """
     operator = 'AND'
 
+
 class OR(AggregateComparison):
     """
     Combine 2 L{IComparison}s such that this is true when either is true.
@@ -795,12 +779,12 @@ class OR(AggregateComparison):
     operator = 'OR'
 
 
+@implementer(IComparison)
 class TableOrderComparisonWrapper(object):
     """
     Wrap any other L{IComparison} and override its L{getInvolvedTables} method
     to specify the same tables but in an explicitly specified order.
     """
-    implements(IComparison)
 
     tables = None
     comparison = None
@@ -811,18 +795,14 @@ class TableOrderComparisonWrapper(object):
         self.tables = tables
         self.comparison = comparison
 
-
     def getInvolvedTables(self):
         return self.tables
-
 
     def getQuery(self, store):
         return self.comparison.getQuery(store)
 
-
     def getArgs(self, store):
         return self.comparison.getArgs(store)
-
 
 
 class boolean(SQLAttribute):
@@ -836,8 +816,9 @@ class boolean(SQLAttribute):
         elif pyval is False:
             return 0
         else:
-            raise TypeError("attribute [%s.%s = boolean()] must be True or False; not %r" %
-                            (self.classname, self.attrname, type(pyval).__name__,))
+            raise TypeError(
+                "attribute [%s.%s = boolean()] must be True or False; not %r" %
+                (self.classname, self.attrname, type(pyval).__name__,))
 
     def outfilter(self, dbval, oself):
         if dbval == 1:
@@ -853,9 +834,9 @@ class boolean(SQLAttribute):
                 (self.classname, self.attrname, dbval))
 
 
-
-LARGEST_POSITIVE = (2 ** 63)-1
+LARGEST_POSITIVE = (2 ** 63) - 1
 LARGEST_NEGATIVE = -(2 ** 63)
+
 
 class ConstraintError(TypeError):
     """A type constraint was violated.
@@ -878,7 +859,6 @@ class ConstraintError(TypeError):
                             type(providedValue).__name__))
 
 
-
 def requireType(attributeObj, value, typerepr, *types):
     if not isinstance(value, types):
         raise ConstraintError(attributeObj,
@@ -886,11 +866,13 @@ def requireType(attributeObj, value, typerepr, *types):
                               value)
 
 
+inttyperepr = "integer between %r and %r" % (
+    LARGEST_NEGATIVE, LARGEST_POSITIVE)
 
-inttyperepr = "integer between %r and %r" % (LARGEST_NEGATIVE, LARGEST_POSITIVE)
 
 class integer(SQLAttribute):
     sqltype = 'INTEGER'
+
     def infilter(self, pyval, oself, store):
         if pyval is None:
             return None
@@ -899,7 +881,6 @@ class integer(SQLAttribute):
             raise ConstraintError(
                 self, inttyperepr, pyval)
         return pyval
-
 
 
 class bytes(SQLAttribute):
@@ -915,34 +896,28 @@ class bytes(SQLAttribute):
             return None
         if isinstance(pyval, str):
             raise ConstraintError(self, "str or other byte buffer", pyval)
-        return buffer(pyval)
-
+        return memoryview(pyval)
 
     def outfilter(self, dbval, oself):
         if dbval is None:
             return None
-        return str(dbval)
-
+        return dbval.decode('utf-8')
 
     @deprecated(Version("Axiom", 0, 7, 5))
     def like(self, *others):
         return super(SQLAttribute, self).like(*others)
 
-
     @deprecated(Version("Axiom", 0, 7, 5))
     def notLike(self, *others):
         return super(SQLAttribute, self).notLike(*others)
-
 
     @deprecated(Version("Axiom", 0, 7, 5))
     def startswith(self, other):
         return super(SQLAttribute, self).startswith(other)
 
-
     @deprecated(Version("Axiom", 0, 7, 5))
     def endswith(self, other):
         return super(SQLAttribute, self).endswith(other)
-
 
 
 class InvalidPathError(ValueError):
@@ -950,6 +925,7 @@ class InvalidPathError(ValueError):
     A path that could not be used with the database was attempted to be used
     with the database.
     """
+
 
 class text(SQLAttribute):
     """
@@ -977,7 +953,6 @@ class text(SQLAttribute):
         return dbval
 
 
-
 class textlist(text):
     delimiter = '\u001f'
 
@@ -1000,9 +975,12 @@ class textlist(text):
         if pyval is None:
             return None
         for innerVal in pyval:
-            assert self.delimiter not in innerVal and self.guard not in innerVal
+            assert \
+                self.delimiter not in innerVal and \
+                self.guard not in innerVal
         result = self.delimiter.join([self.guard] + list(pyval))
         return super(textlist, self).infilter(result, oself, store)
+
 
 class path(text):
     """
@@ -1026,7 +1004,8 @@ class path(text):
         """
         if self.relative:
             fspath = self.__get__(oself)
-            oself.__dirty__[self.attrname] = self, self.infilter(fspath, oself, store)
+            oself.__dirty__[self.attrname] = self, self.infilter(fspath, oself,
+                                                                 store)
 
     def infilter(self, pyval, oself, store):
         if pyval is None:
@@ -1037,11 +1016,13 @@ class path(text):
         if store is None:
             return None
         if self.relative:
-            # XXX add some more filepath APIs to make this kind of checking easier.
+            # XXX add some more filepath APIs to
+            # make this kind of checking easier.
             storepath = os.path.normpath(store.filesdir.path)
             mysegs = mypath.split(os.sep)
             storesegs = storepath.split(os.sep)
-            if len(mysegs) <= len(storesegs) or mysegs[:len(storesegs)] != storesegs:
+            if len(mysegs) <= len(storesegs) or \
+                    mysegs[:len(storesegs)] != storesegs:
                 raise InvalidPathError('%s not in %s' % (mypath, storepath))
             # In the database we use '/' to separate paths for portability.
             # This databaes could have relative paths created on Windows, then
@@ -1052,8 +1033,8 @@ class path(text):
             # not reasonable to calculate relative paths outside the store.
             p = '/'.join(mysegs[len(storesegs):])
         else:
-            p = mypath          # we already know it's absolute, it came from a
-                                # filepath.
+            p = mypath  # we already know it's absolute, it came from a
+            # filepath.
         return super(path, self).infilter(p, oself, store)
 
     def outfilter(self, dbval, oself):
@@ -1070,6 +1051,7 @@ class path(text):
 
 MICRO = 1000000.
 
+
 class timestamp(integer):
     """
     An in-database representation of date and time.
@@ -1077,6 +1059,7 @@ class timestamp(integer):
     To make formatting as easy as possible, this is represented in Python as an
     instance of L{epsilon.extime.Time}; see its documentation for more details.
     """
+
     def infilter(self, pyval, oself, store):
         if pyval is None:
             return None
@@ -1089,8 +1072,10 @@ class timestamp(integer):
             return None
         return Time.fromPOSIXTimestamp(dbval / MICRO)
 
+
 _cascadingDeletes = {}
 _disallows = {}
+
 
 class reference(integer):
     NULLIFY = object()
@@ -1102,7 +1087,7 @@ class reference(integer):
         integer.__init__(self, doc, indexed, None, allowNone)
         assert whenDeleted in (reference.NULLIFY,
                                reference.CASCADE,
-                               reference.DISALLOW),(
+                               reference.DISALLOW), (
             "whenDeleted must be one of: "
             "reference.NULLIFY, reference.CASCADE, reference.DISALLOW")
         self.reftype = reftype
@@ -1125,7 +1110,6 @@ class reference(integer):
         if sid is None:
             return 'None'
         return 'reference(%d)' % (sid,)
-
 
     def __get__(self, oself, cls=None):
         """
@@ -1159,7 +1143,7 @@ class reference(integer):
         return rv
 
     def prepareInsert(self, oself, store):
-        oitem = super(reference, self).__get__(oself) # bypass NULLIFY
+        oitem = super(reference, self).__get__(oself)  # bypass NULLIFY
         if oitem is not None and oitem.store is not store:
             raise NoCrossStoreReferences(
                 "Trying to insert item: %r into store: %r, "
@@ -1186,7 +1170,8 @@ class reference(integer):
         if dbval is None:
             return None
 
-        referee = oself.store.getItemByID(dbval, default=None, autoUpgrade=not oself.__legacy__)
+        referee = oself.store.getItemByID(dbval, default=None,
+                                          autoUpgrade=not oself.__legacy__)
         if referee is None and self.whenDeleted is not reference.NULLIFY:
 
             # If referee merely changed to another valid referent,
@@ -1202,8 +1187,10 @@ class reference(integer):
             if dbval != getattr(oself, self.dbunderlying):
                 return self.__get__(oself, None)
 
-            raise BrokenReference('Reference to storeID %r is broken' % (dbval,))
+            raise BrokenReference(
+                'Reference to storeID %r is broken' % (dbval,))
         return referee
+
 
 class ieee754_double(SQLAttribute):
     """
@@ -1243,14 +1230,13 @@ class ieee754_double(SQLAttribute):
         return dbval
 
 
-
 class AbstractFixedPointDecimal(integer):
     """
     Attribute representing a number with a specified number of decimal
     places.
 
     This is stored in SQLite as a binary integer multiplied by M{10**N}
-    where C{N} is the number of decimal places required by Python. 
+    where C{N} is the number of decimal places required by Python.
     Therefore, in-database multiplication, division, or queries which
     compare to integers or fixedpointdecimals with a different number of
     decimal places, will not work.  Also, you cannot store, or sum to, fixed
@@ -1277,7 +1263,6 @@ class AbstractFixedPointDecimal(integer):
     def __init__(self, **kw):
         integer.__init__(self, **kw)
 
-
     def infilter(self, pyval, oself, store):
         if pyval is None:
             return None
@@ -1286,21 +1271,19 @@ class AbstractFixedPointDecimal(integer):
         if isinstance(pyval, Decimal):
             # Python < 2.5.2 compatibility:
             # Use to_integral instead of to_integral_value.
-            dbval = int((pyval * 10**self.decimalPlaces).to_integral())
+            dbval = int((pyval * 10 ** self.decimalPlaces).to_integral())
             return super(AbstractFixedPointDecimal, self).infilter(
                 dbval, oself, store)
         else:
             raise TypeError(
                 "attribute [%s.%s = AbstractFixedPointDecimal(...)] must be "
                 "Decimal instance; not %r" % (
-                self.classname, self.attrname, type(pyval).__name__))
-
+                    self.classname, self.attrname, type(pyval).__name__))
 
     def outfilter(self, dbval, oself):
         if dbval is None:
             return None
-        return Decimal(dbval) / 10**self.decimalPlaces
-
+        return Decimal(dbval) / 10 ** self.decimalPlaces
 
     def compare(self, other, sqlop):
         if isinstance(other, Comparable):
@@ -1315,7 +1298,7 @@ class AbstractFixedPointDecimal(integer):
                             self.classname, self.attrname,
                             sqlop,
                             other.classname, other.attrname
-                            ))
+                        ))
             else:
                 raise TypeError(
                     "Can't compare Decimals to other things: "
@@ -1323,29 +1306,49 @@ class AbstractFixedPointDecimal(integer):
                         self.classname, self.attrname,
                         sqlop,
                         other.classname, other.attrname
-                        ))
+                    ))
         return super(AbstractFixedPointDecimal, self).compare(other, sqlop)
+
 
 class point1decimal(AbstractFixedPointDecimal):
     decimalPlaces = 1
+
+
 class point2decimal(AbstractFixedPointDecimal):
     decimalPlaces = 2
+
+
 class point3decimal(AbstractFixedPointDecimal):
     decimalPlaces = 3
+
+
 class point4decimal(AbstractFixedPointDecimal):
     decimalPlaces = 4
+
+
 class point5decimal(AbstractFixedPointDecimal):
     decimalPlaces = 5
+
+
 class point6decimal(AbstractFixedPointDecimal):
     decimalPlaces = 6
+
+
 class point7decimal(AbstractFixedPointDecimal):
     decimalPlaces = 7
+
+
 class point8decimal(AbstractFixedPointDecimal):
     decimalPlaces = 8
+
+
 class point9decimal(AbstractFixedPointDecimal):
     decimalPlaces = 9
+
+
 class point10decimal(AbstractFixedPointDecimal):
     decimalPlaces = 10
+
 
 class money(point4decimal):
     """

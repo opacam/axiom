@@ -1,9 +1,10 @@
-
-from twisted.trial import unittest
-from twisted.python import failure, filepath
 from twisted.application import service
+from twisted.python import failure, filepath
+from twisted.trial import unittest
 
-from axiom import iaxiom, store, item, attributes, batch, substore
+from axiom import iaxiom, store, item, attributes, \
+    batch, substore
+
 
 class TestWorkUnit(item.Item):
     information = attributes.integer()
@@ -14,7 +15,6 @@ class TestWorkUnit(item.Item):
 
 class ExtraUnit(item.Item):
     unformashun = attributes.text()
-
 
 
 class WorkListener(item.Item):
@@ -33,13 +33,11 @@ class WorkListener(item.Item):
         self.listener(item)
 
 
-
 class BatchTestCase(unittest.TestCase):
     def setUp(self):
         self.procType = batch.processor(TestWorkUnit)
         self.store = store.Store()
         self.scheduler = iaxiom.IScheduler(self.store)
-
 
     def testItemTypeCreation(self):
         """
@@ -54,7 +52,6 @@ class BatchTestCase(unittest.TestCase):
         self.failIfIdentical(procB, procC)
         self.assertNotEqual(procB.typeName, procC.typeName)
 
-
     def testInstantiation(self):
         """
         Test that a batch processor can be instantiated and added to a
@@ -63,18 +60,18 @@ class BatchTestCase(unittest.TestCase):
         proc = self.procType(store=self.store)
         self.assertIdentical(self.store.findUnique(self.procType), proc)
 
-
     def testListenerlessProcessor(self):
         """
         Test that a batch processor can be stepped even if it has no
         listeners, and that it correctly reports it has no work to do.
         """
         proc = self.procType(store=self.store)
-        self.assertFalse(proc.step(), "expected no more work to be reported, some was")
+        self.assertFalse(proc.step(),
+                         "expected no more work to be reported, some was")
 
         TestWorkUnit(store=self.store, information=0)
-        self.assertFalse(proc.step(), "expected no more work to be reported, some was")
-
+        self.assertFalse(proc.step(),
+                         "expected no more work to be reported, some was")
 
     def testListeners(self):
         """
@@ -101,13 +98,13 @@ class BatchTestCase(unittest.TestCase):
         proc.removeReliableListener(listenerB)
         self.assertEqual(list(proc.getReliableListeners()), [])
 
-
     def testBasicProgress(self):
         """
         Test that when a processor is created and given a chance to
         run, it completes some work.
         """
         processedItems = []
+
         def listener(item):
             processedItems.append(item.information)
 
@@ -118,7 +115,8 @@ class BatchTestCase(unittest.TestCase):
 
         self.assertEqual(processedItems, [])
 
-        self.assertFalse(proc.step(), "expected no work to be reported, some was")
+        self.assertFalse(proc.step(),
+                         "expected no work to be reported, some was")
 
         self.assertEqual(processedItems, [])
 
@@ -126,18 +124,21 @@ class BatchTestCase(unittest.TestCase):
             TestWorkUnit(store=self.store, information=i)
             ExtraUnit(store=self.store, unformashun=str(-i))
 
-        self.assertTrue(proc.step(), "expected more work to be reported, none was")
+        self.assertTrue(proc.step(),
+                        "expected more work to be reported, none was")
         self.assertEqual(processedItems, [0])
 
-        self.assertTrue(proc.step(), "expected more work to be reported, none was")
+        self.assertTrue(proc.step(),
+                        "expected more work to be reported, none was")
         self.assertEqual(processedItems, [0, 1])
 
-        self.assertFalse(proc.step(), "expected no more work to be reported, some was")
+        self.assertFalse(proc.step(),
+                         "expected no more work to be reported, some was")
         self.assertEqual(processedItems, [0, 1, 2])
 
-        self.assertFalse(proc.step(), "expected no more work to be reported, some was")
+        self.assertFalse(proc.step(),
+                         "expected no more work to be reported, some was")
         self.assertEqual(processedItems, [0, 1, 2])
-
 
     def testProgressAgainstExisting(self):
         """
@@ -147,6 +148,7 @@ class BatchTestCase(unittest.TestCase):
         after the processor are also handled.
         """
         processedItems = []
+
         def listener(item):
             processedItems.append(item.information)
 
@@ -160,33 +162,40 @@ class BatchTestCase(unittest.TestCase):
 
         self.assertEqual(processedItems, [])
 
-        self.assertTrue(proc.step(), "expected more work to be reported, none was")
+        self.assertTrue(proc.step(),
+                        "expected more work to be reported, none was")
         self.assertEqual(processedItems, [2])
 
-        self.assertTrue(proc.step(), "expected more work to be reported, none was")
+        self.assertTrue(proc.step(),
+                        "expected more work to be reported, none was")
         self.assertEqual(processedItems, [2, 1])
 
-        self.assertFalse(proc.step(), "expected no more work to be reported, some was")
+        self.assertFalse(proc.step(),
+                         "expected no more work to be reported, some was")
         self.assertEqual(processedItems, [2, 1, 0])
 
-        self.assertFalse(proc.step(), "expected no more work to be reported, some was")
+        self.assertFalse(proc.step(),
+                         "expected no more work to be reported, some was")
         self.assertEqual(processedItems, [2, 1, 0])
 
         for i in range(3, 6):
             TestWorkUnit(store=self.store, information=i)
 
-        self.assertTrue(proc.step(), "expected more work to be reported, none was")
+        self.assertTrue(proc.step(),
+                        "expected more work to be reported, none was")
         self.assertEqual(processedItems, [2, 1, 0, 3])
 
-        self.assertTrue(proc.step(), "expected more work to be reported, none was")
+        self.assertTrue(proc.step(),
+                        "expected more work to be reported, none was")
         self.assertEqual(processedItems, [2, 1, 0, 3, 4])
 
-        self.assertFalse(proc.step(), "expected no more work to be reported, some was")
+        self.assertFalse(proc.step(),
+                         "expected no more work to be reported, some was")
         self.assertEqual(processedItems, [2, 1, 0, 3, 4, 5])
 
-        self.assertFalse(proc.step(), "expected no more work to be reported, some was")
+        self.assertFalse(proc.step(),
+                         "expected no more work to be reported, some was")
         self.assertEqual(processedItems, [2, 1, 0, 3, 4, 5])
-
 
     def testBrokenListener(self):
         """
@@ -197,6 +206,7 @@ class BatchTestCase(unittest.TestCase):
 
         errmsg = "This reliable listener is not very reliable!"
         processedItems = []
+
         def listener(item):
             if item.information == 1:
                 raise RuntimeError(errmsg)
@@ -230,17 +240,18 @@ class BatchTestCase(unittest.TestCase):
         self.assertEqual(len(loggedErrors), 1)
         self.assertEqual(loggedErrors[0].getErrorMessage(), errmsg)
 
-
     def testMultipleListeners(self):
         """
         Test that a single batch processor with multiple listeners
         added at different times delivers each item to each listener.
         """
         processedItemsA = []
+
         def listenerA(item):
             processedItemsA.append(item.information)
 
         processedItemsB = []
+
         def listenerB(item):
             processedItemsB.append(item.information)
 
@@ -273,7 +284,6 @@ class BatchTestCase(unittest.TestCase):
         self.assertEqual(
             processedItemsB, [4, 5, 3, 2, 1, 0])
 
-
     def testRepeatedAddListener(self):
         """
         Test that adding the same listener repeatedly has the same
@@ -285,13 +295,13 @@ class BatchTestCase(unittest.TestCase):
         proc.addReliableListener(listener)
         self.assertEqual(list(proc.getReliableListeners()), [listener])
 
-
     def testSuperfluousItemAddition(self):
         """
         Test the addItem method for work which would have been done already,
         and so for which addItem should therefore be a no-op.
         """
         processedItems = []
+
         def listener(item):
             processedItems.append(item.information)
 
@@ -324,7 +334,6 @@ class BatchTestCase(unittest.TestCase):
 
         self.assertEqual(processedItems, [2, 3, 1, 0])
 
-
     def testReprocessItemAddition(self):
         """
         Test the addItem method for work which is within the bounds of work
@@ -332,6 +341,7 @@ class BatchTestCase(unittest.TestCase):
         addItem call.
         """
         processedItems = []
+
         def listener(item):
             processedItems.append(item.information)
 
@@ -366,7 +376,6 @@ class BatchTestCase(unittest.TestCase):
 
         self.assertEqual(processedItems, [1])
 
-
     def test_processorStartsUnscheduled(self):
         """
         Test that when a processor is first created, it is not scheduled to
@@ -377,7 +386,6 @@ class BatchTestCase(unittest.TestCase):
         self.assertEqual(
             list(self.scheduler.scheduledTimes(proc)),
             [])
-
 
     def test_itemAddedIgnoredWithoutListeners(self):
         """
@@ -391,7 +399,6 @@ class BatchTestCase(unittest.TestCase):
         self.assertEqual(
             list(self.scheduler.scheduledTimes(proc)),
             [])
-
 
     def test_itemAddedSchedulesProcessor(self):
         """
@@ -414,7 +421,6 @@ class BatchTestCase(unittest.TestCase):
             list(self.scheduler.scheduledTimes(proc)),
             [proc.scheduled])
 
-
     def test_addReliableListenerSchedulesProcessor(self):
         """
         Test that if C{addReliableListener} is called while the processor is
@@ -427,7 +433,6 @@ class BatchTestCase(unittest.TestCase):
         self.assertEqual(
             list(self.scheduler.scheduledTimes(proc)),
             [proc.scheduled])
-
 
     def test_itemAddedWhileScheduled(self):
         """
@@ -444,7 +449,6 @@ class BatchTestCase(unittest.TestCase):
         self.assertEqual(
             list(self.scheduler.scheduledTimes(proc)),
             [proc.scheduled])
-
 
     def test_addReliableListenerWhileScheduled(self):
         """
@@ -463,7 +467,6 @@ class BatchTestCase(unittest.TestCase):
             list(self.scheduler.scheduledTimes(proc)),
             [proc.scheduled])
 
-
     def test_processorIdlesWhenCaughtUp(self):
         """
         Test that the C{run} method of the processor returns C{None} when it
@@ -473,7 +476,6 @@ class BatchTestCase(unittest.TestCase):
         self.assertIdentical(proc.run(), None)
 
 
-
 class BatchCallTestItem(item.Item):
     called = attributes.boolean(default=False)
 
@@ -481,12 +483,10 @@ class BatchCallTestItem(item.Item):
         self.called = True
 
 
-
 class BrokenException(Exception):
     """
     Exception always raised by L{BrokenReliableListener.processItem}.
     """
-
 
 
 class BatchWorkItem(item.Item):
@@ -497,9 +497,7 @@ class BatchWorkItem(item.Item):
     value = attributes.text(default="unprocessed")
 
 
-
 BatchWorkSource = batch.processor(BatchWorkItem)
-
 
 
 class BrokenReliableListener(item.Item):
@@ -512,8 +510,8 @@ class BrokenReliableListener(item.Item):
     anAttribute = attributes.integer()
 
     def processItem(self, item):
-        raise BrokenException("Broken Reliable Listener is working as expected.")
-
+        raise BrokenException(
+            "Broken Reliable Listener is working as expected.")
 
 
 class WorkingReliableListener(item.Item):
@@ -529,7 +527,6 @@ class WorkingReliableListener(item.Item):
         item.value = "processed"
 
 
-
 class RemoteTestCase(unittest.TestCase):
     def test_noBatchService(self):
         """
@@ -540,7 +537,6 @@ class RemoteTestCase(unittest.TestCase):
         self.assertRaises(TypeError, iaxiom.IBatchService, st)
         self.assertIdentical(
             iaxiom.IBatchService(st, None), None)
-
 
     def test_subStoreNoBatchService(self):
         """
@@ -553,7 +549,6 @@ class RemoteTestCase(unittest.TestCase):
         self.assertIdentical(
             iaxiom.IBatchService(ss, None), None)
 
-
     def testBatchService(self):
         """
         Make sure SubStores can be adapted to L{iaxiom.IBatchService}.
@@ -564,7 +559,6 @@ class RemoteTestCase(unittest.TestCase):
         bs = iaxiom.IBatchService(ss)
         self.assertTrue(iaxiom.IBatchService.providedBy(bs))
 
-
     def testProcessLifetime(self):
         """
         Test that the batch system process can be started and stopped.
@@ -574,7 +568,6 @@ class RemoteTestCase(unittest.TestCase):
         svc = batch.BatchProcessingControllerService(s)
         svc.startService()
         return svc.stopService()
-
 
     def testCalling(self):
         """
@@ -587,14 +580,15 @@ class RemoteTestCase(unittest.TestCase):
         d = iaxiom.IBatchService(ss).call(
             BatchCallTestItem(store=ss.open()).callIt)
         ss.close()
+
         def called(ign):
             self.assertTrue(
                 ss.open().findUnique(BatchCallTestItem).called,
                 "Was not called")
             ss.close()
             return service.IService(s).stopService()
-        return d.addCallback(called)
 
+        return d.addCallback(called)
 
     def testProcessingServiceStepsOverErrors(self):
         """
@@ -612,8 +606,10 @@ class RemoteTestCase(unittest.TestCase):
         for i in range(BATCH_WORK_UNITS):
             BatchWorkItem(store=st)
 
-        source.addReliableListener(BrokenReliableListener(store=st), iaxiom.REMOTE)
-        source.addReliableListener(WorkingReliableListener(store=st), iaxiom.REMOTE)
+        source.addReliableListener(BrokenReliableListener(store=st),
+                                   iaxiom.REMOTE)
+        source.addReliableListener(WorkingReliableListener(store=st),
+                                   iaxiom.REMOTE)
 
         svc = batch.BatchProcessingService(st, iaxiom.REMOTE)
 
@@ -625,15 +621,14 @@ class RemoteTestCase(unittest.TestCase):
         for i in range(BATCH_WORK_UNITS * 2):
             next(task)
 
-
         self.assertEqual(
             len(self.flushLoggedErrors(BrokenException)),
             BATCH_WORK_UNITS)
 
         self.assertEqual(
-            st.query(BatchWorkItem, BatchWorkItem.value == "processed").count(),
+            st.query(BatchWorkItem,
+                     BatchWorkItem.value == "processed").count(),
             BATCH_WORK_UNITS)
-
 
     def test_itemAddedStartsBatchProcess(self):
         """
@@ -668,7 +663,6 @@ class RemoteTestCase(unittest.TestCase):
         # It probably won't be ready by now, but who knows.
         self.assertIn(batchService.batchController.mode, ('starting', 'ready'))
 
-
     def test_itemAddedBeforeStarted(self):
         """
         If C{itemAdded} is called before the batch service is started, the batch
@@ -693,7 +687,6 @@ class RemoteTestCase(unittest.TestCase):
         batchService = iaxiom.IBatchService(st)
         self.assertEqual(batchService.batchController.mode, 'stopped')
 
-
     def test_itemAddedWithoutBatchService(self):
         """
         If the store has no batch service, C{itemAdded} doesn't start the batch
@@ -714,7 +707,6 @@ class RemoteTestCase(unittest.TestCase):
 
         # And still there should be no batch service at all.
         self.assertIdentical(iaxiom.IBatchService(st, None), None)
-
 
     def test_subStoreBatchServiceStart(self):
         """

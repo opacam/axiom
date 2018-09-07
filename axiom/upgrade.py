@@ -8,10 +8,11 @@ from twisted.python.failure import Failure
 from twisted.python.log import msg
 from twisted.python.reflect import qual
 
-from axiom.errors import NoUpgradePathAvailable, UpgraderRecursion
 from axiom.errors import ItemUpgradeError
-from axiom.item import _legacyTypes, _typeNameToMostRecentClass
-
+from axiom.errors import NoUpgradePathAvailable, \
+    UpgraderRecursion
+from axiom.item import _legacyTypes, \
+    _typeNameToMostRecentClass
 
 _upgradeRegistry = {}
 
@@ -35,7 +36,6 @@ class _StoreUpgrade(object):
         self._currentlyUpgrading = {}
         self._oldTypesRemaining = []
 
-
     def upgradesPending(self):
         return bool(self._oldTypesRemaining)
 
@@ -45,7 +45,6 @@ class _StoreUpgrade(object):
         Flag indicating whether there any types that still need to be upgraded
         or not.
         """)
-
 
     def checkUpgradePaths(self):
         """
@@ -76,24 +75,23 @@ class _StoreUpgrade(object):
             while upgver < currentType.schemaVersion:
                 # Do we have enough of the schema present to upgrade?
                 if ((typeInQuestion, upgver)
-                    not in _upgradeRegistry):
+                        not in _upgradeRegistry):
                     cantUpgradeErrors.append(
                         "No upgrader present for %s (%s) from %d to %d" % (
                             typeInQuestion, qual(currentType), upgver,
                             upgver + 1))
 
                 # Is there a type available for each upgrader version?
-                if upgver+1 != currentType.schemaVersion:
-                    if (typeInQuestion, upgver+1) not in _legacyTypes:
+                if upgver + 1 != currentType.schemaVersion:
+                    if (typeInQuestion, upgver + 1) not in _legacyTypes:
                         cantUpgradeErrors.append(
                             "Type schema required for upgrade missing:"
                             " %s version %d" % (
-                                typeInQuestion, upgver+1))
+                                typeInQuestion, upgver + 1))
                 upgver += 1
 
             if cantUpgradeErrors:
                 raise NoUpgradePathAvailable('\n    '.join(cantUpgradeErrors))
-
 
     def queueTypeUpgrade(self, oldtype):
         """
@@ -101,7 +99,6 @@ class _StoreUpgrade(object):
         """
         if oldtype not in self._oldTypesRemaining:
             self._oldTypesRemaining.append(oldtype)
-
 
     def upgradeItem(self, thisItem):
         """
@@ -119,7 +116,6 @@ class _StoreUpgrade(object):
         finally:
             self._currentlyUpgrading.pop(sid)
 
-
     def upgradeEverything(self):
         """
         Upgrade every item in the store, one at a time.
@@ -129,7 +125,6 @@ class _StoreUpgrade(object):
         @return: A generator that yields for each item upgrade.
         """
         return self.upgradeBatch(1)
-
 
     def upgradeBatch(self, n):
         """
@@ -152,7 +147,7 @@ class _StoreUpgrade(object):
                 upgradedAnything = True
                 try:
                     self.upgradeItem(theItem)
-                except:
+                except Exception as e:
                     f = Failure()
                     raise ItemUpgradeError(
                         f, theItem.storeID, itemType,
@@ -170,7 +165,8 @@ class _StoreUpgrade(object):
                 if not upgradedAnything:
                     self._oldTypesRemaining.pop(0)
                     if didAny:
-                        msg("%s finished upgrading %s" % (store.dbdir.path, qual(t0)))
+                        msg("%s finished upgrading %s" % (
+                            store.dbdir.path, qual(t0)))
                     continue
                 elif not didAny:
                     didAny = True
@@ -180,7 +176,6 @@ class _StoreUpgrade(object):
 
             if didAny:
                 msg("%s completely upgraded." % (store.dbdir.path,))
-
 
 
 def registerUpgrader(upgrader, typeName, oldVersion, newVersion):
@@ -195,14 +190,17 @@ def registerUpgrader(upgrader, typeName, oldVersion, newVersion):
     @param newVersion: The version to which this will upgrade.  This must be
     exactly one greater than C{oldVersion}.
     """
-    # assert (typeName, oldVersion, newVersion) not in _upgradeRegistry, "duplicate upgrader"
+    # assert (typeName, oldVersion, newVersion) not in \
+    #        _upgradeRegistry, "duplicate upgrader"
     # ^ this makes the tests blow up so it's just disabled for now; perhaps we
     # should have a specific test mode
     # assert newVersion - oldVersion == 1, "read the doc string"
     assert isinstance(typeName, str), "read the doc string"
     _upgradeRegistry[typeName, oldVersion] = upgrader
 
-def registerAttributeCopyingUpgrader(itemType, fromVersion, toVersion, postCopy=None):
+
+def registerAttributeCopyingUpgrader(itemType, fromVersion, toVersion,
+                                     postCopy=None):
     """
     Register an upgrader for C{itemType}, from C{fromVersion} to C{toVersion},
     which will copy all attributes from the legacy item to the new item.  If
@@ -212,6 +210,7 @@ def registerAttributeCopyingUpgrader(itemType, fromVersion, toVersion, postCopy=
     @param postCopy: a callable of one argument
     @return: None
     """
+
     def upgrader(old):
         newitem = old.upgradeVersion(itemType.typeName, fromVersion, toVersion,
                                      **dict((str(name), getattr(old, name))
@@ -219,6 +218,7 @@ def registerAttributeCopyingUpgrader(itemType, fromVersion, toVersion, postCopy=
         if postCopy is not None:
             postCopy(newitem)
         return newitem
+
     registerUpgrader(upgrader, itemType.typeName, fromVersion, toVersion)
 
 
@@ -230,11 +230,13 @@ def registerDeletionUpgrader(itemType, fromVersion, toVersion):
     @param itemType: L{axiom.item.Item} subclass
     @return: None
     """
+
     # XXX This should actually do something more special so that a new table is
     # not created and such.
     def upgrader(old):
         old.deleteFromStore()
         return None
+
     registerUpgrader(upgrader, itemType.typeName, fromVersion, toVersion)
 
 

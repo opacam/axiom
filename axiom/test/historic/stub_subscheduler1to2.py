@@ -5,11 +5,10 @@ Database creator for the test for the upgrade of SubScheduler from version 1 to
 version 2.
 """
 
-from axiom.test.historic.stubloader import saveStub
-
-from axiom.substore import SubStore
-from axiom.scheduler import SubScheduler
 from axiom.dependency import installOn
+from axiom.scheduler import SubScheduler
+from axiom.substore import SubStore
+from axiom.test.historic.stubloader import saveStub
 
 
 def createDatabase(store):

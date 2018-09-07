@@ -1,12 +1,12 @@
-
 # This module is really a placeholder: inheritance between database classes is
 # unsupported in XAtop right now.  We are just making sure that it is
 # aggressively unsupported.
 
 from twisted.trial import unittest
 
-from axiom.item import Item, NoInheritance
 from axiom.attributes import integer
+from axiom.item import Item, NoInheritance
+
 
 class InheritanceUnsupported(unittest.TestCase):
 
@@ -25,4 +25,3 @@ class InheritanceUnsupported(unittest.TestCase):
             pass
         else:
             self.fail("Expected RuntimeError but none occurred")
-

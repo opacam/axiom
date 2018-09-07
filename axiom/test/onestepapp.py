@@ -6,15 +6,18 @@ upgrading tests.  It upgrades from oldapp in one step, rather than requiring an
 intermediary step as morenewapp.py does.
 """
 
+from axiom.attributes import text, integer, reference, \
+    inmemory
 from axiom.item import Item
-from axiom.attributes import text, integer, reference, inmemory
-
 from axiom.upgrade import registerUpgrader
+
 
 class ActivateHelper:
     activated = 0
+
     def activate(self):
         self.activated += 1
+
 
 class Adventurer(ActivateHelper, Item):
     typeName = 'test_app_player'
@@ -22,6 +25,7 @@ class Adventurer(ActivateHelper, Item):
 
     name = text()
     activated = inmemory()
+
 
 class InventoryEntry(ActivateHelper, Item):
     typeName = 'test_app_inv'
@@ -31,6 +35,7 @@ class InventoryEntry(ActivateHelper, Item):
     owned = reference()
 
     activated = inmemory()
+
 
 class Sword(ActivateHelper, Item):
     typeName = 'test_app_sword'
@@ -44,6 +49,7 @@ class Sword(ActivateHelper, Item):
         def get(self):
             return self.store.findUnique(InventoryEntry,
                                          InventoryEntry.owned == self).owner
+
         return get,
 
     owner = property(*owner())
@@ -56,19 +62,18 @@ def sword2to3(oldsword):
 
 registerUpgrader(sword2to3, 'test_app_sword', 2, 3)
 
-
 ####### DOUBLE-LEGACY UPGRADE SPECTACULAR !! ###########
 
 # declare legacy class.
 
 from axiom.item import declareLegacyItem
 
-declareLegacyItem(typeName = 'test_app_sword',
-                  schemaVersion = 2,
-                  attributes = dict(name=text(),
-                                    damagePerHit=integer(),
-                                    owner=reference(),
-                                    activated=inmemory()))
+declareLegacyItem(typeName='test_app_sword',
+                  schemaVersion=2,
+                  attributes=dict(name=text(),
+                                  damagePerHit=integer(),
+                                  owner=reference(),
+                                  activated=inmemory()))
 
 
 def upgradePlayerAndSword(oldplayer):
@@ -101,4 +106,3 @@ def sword1to3(oldsword):
 
 registerUpgrader(sword1to3, 'test_app_sword', 1, 3)
 registerUpgrader(player1to2, 'test_app_player', 1, 2)
-

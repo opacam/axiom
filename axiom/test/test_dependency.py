@@ -1,15 +1,15 @@
 # Copright 2008 Divmod, Inc.  See LICENSE file for details.
 
-from zope.interface import Interface, implements
-
 from twisted.trial import unittest
+from zope.interface import Interface, implementer
 
 from axiom import dependency
+from axiom.attributes import text, integer, reference, \
+    inmemory
+from axiom.errors import UnsatisfiedRequirement
+from axiom.item import Item
 from axiom.store import Store
 from axiom.substore import SubStore
-from axiom.item import Item
-from axiom.errors import UnsatisfiedRequirement
-from axiom.attributes import text, integer, reference, inmemory
 
 
 class IElectricityGrid(Interface):
@@ -30,19 +30,19 @@ class IElectricityGrid(Interface):
 FAKE_POWER = 'fake power'
 REAL_POWER = 'real power'
 
+
+@implementer(IElectricityGrid)
 class NullGrid(object):
     """
     This is a null electricity grid.  It is provided as a default grid in the
     case where a site store is not present.
     """
-    implements(IElectricityGrid)
 
     def __init__(self, siteStore):
         """
         Create a null grid with a reference to the site store.
         """
         self.siteStore = siteStore
-
 
     def draw(self, watts):
         """
@@ -56,12 +56,12 @@ class NullGrid(object):
         return FAKE_POWER
 
 
+@implementer(IElectricityGrid)
 class RealGrid(Item):
     """
     A power grid for the power utility; this is an item which should be
     installed on a site store.
     """
-    implements(IElectricityGrid)
 
     powerupInterfaces = (IElectricityGrid,)
 
@@ -79,13 +79,11 @@ class RealGrid(Item):
         return REAL_POWER
 
 
-
 def noGrid(siteStore):
     """
     No power grid was available.  Raise an exception.
     """
     raise RuntimeError("No power grid available.")
-
 
 
 class IronLung(Item):
@@ -113,7 +111,6 @@ class IronLung(Item):
         return self.grid.draw(self.wattsPerPump)
 
 
-
 class SpecifiedBadDefaults(Item):
     """
     Depends on a power grid, but specifies defaults for that dependency that
@@ -137,6 +134,7 @@ class SpecifiedBadDefaults(Item):
 
 class Kitchen(Item):
     name = text()
+
 
 class PowerStrip(Item):
     """
@@ -186,12 +184,13 @@ class PowerPlant(Item):
     grid = dependency.requiresFromSite(IElectricityGrid, noGrid, NullGrid)
 
 
-
 class IAppliance(Interface):
     pass
 
+
 class IBreadConsumer(Interface):
     pass
+
 
 class Breadbox(Item):
     slices = integer(default=100)
@@ -199,8 +198,9 @@ class Breadbox(Item):
     def dispenseBread(self, amt):
         self.slices -= amt
 
+
+@implementer(IBreadConsumer)
 class Toaster(Item):
-    implements(IBreadConsumer)
     powerupInterfaces = (IAppliance, IBreadConsumer)
 
     powerStrip = dependency.dependsOn(PowerStrip,
@@ -229,8 +229,11 @@ class Toaster(Item):
         self.powerStrip.draw(100)
         self.breadFactory.dispenseBread(2)
 
+
 def powerstripSetup(ps):
     ps.setForUSElectricity()
+
+
 class Blender(Item):
     powerStrip = dependency.dependsOn(PowerStrip,
                                       powerstripSetup)
@@ -239,11 +242,14 @@ class Blender(Item):
     def __getPowerupInterfaces__(self, powerups):
         yield (IAppliance, 0)
 
+
 class IceCrusher(Item):
     blender = dependency.dependsOn(Blender)
 
+
 class Blender2(Item):
     powerStrip = reference()
+
 
 class DependencyTest(unittest.TestCase):
     def setUp(self):
@@ -289,7 +295,7 @@ class DependencyTest(unittest.TestCase):
         self.assertEqual(ps.voltage, 110)
         self.assertEqual(e.breadFactory, bb)
         self.assertEqual(set(dependency.installedRequirements(e, foo)),
-                          set([ps, bb]))
+                         set([ps, bb]))
         self.assertEqual(list(dependency.installedDependents(ps, foo)), [e])
 
     def test_basicUninstall(self):
@@ -315,7 +321,7 @@ class DependencyTest(unittest.TestCase):
 
         ps = self.store.findUnique(PowerStrip)
         self.assertRaises(dependency.DependencyError,
-                              dependency.uninstallFrom, ps, foo)
+                          dependency.uninstallFrom, ps, foo)
 
     def test_properOrphaning(self):
         """
@@ -333,13 +339,13 @@ class DependencyTest(unittest.TestCase):
         dependency.installOn(f, foo)
 
         self.assertEqual(list(self.store.query(PowerStrip)), [ps])
-        #XXX does ordering matter?
+        # XXX does ordering matter?
         self.assertEqual(set(dependency.installedDependents(ps, foo)),
-                          set([e, f]))
+                         set([e, f]))
         self.assertEqual(set(dependency.installedRequirements(e, foo)),
-                          set([bb, ps]))
+                         set([bb, ps]))
         self.assertEqual(list(dependency.installedRequirements(f, foo)),
-                          [ps])
+                         [ps])
 
         dependency.uninstallFrom(e, foo)
         self.assertEqual(dependency.installedOn(ps), foo)
@@ -361,7 +367,7 @@ class DependencyTest(unittest.TestCase):
         dependency.installOn(f, foo)
 
         self.assertEqual(list(dependency.installedUniqueRequirements(e, foo)),
-                          [bb])
+                         [bb])
 
     def test_customizerCalledOnce(self):
         """
@@ -404,10 +410,9 @@ class DependencyTest(unittest.TestCase):
         dependency.installOn(e, foo)
         ps = PowerStrip(store=self.store)
         self.assertRaises(dependency.DependencyError,
-                              dependency.installOn, ps, foo)
+                          dependency.installOn, ps, foo)
         e2 = Toaster(store=self.store)
         dependency.installOn(e2, foo)
-
 
     def test_recursiveInstall(self):
         """
@@ -423,7 +428,7 @@ class DependencyTest(unittest.TestCase):
         self.assertEqual(dependency.installedOn(blender), foo)
         self.assertEqual(dependency.installedOn(ps), foo)
         self.assertEqual(list(dependency.installedRequirements(ic, foo)),
-                          [blender])
+                         [blender])
 
     def test_recursiveUninstall(self):
         """
@@ -473,7 +478,6 @@ class DependencyTest(unittest.TestCase):
         dependency.uninstallFrom(f, foo)
         self.assertRaises(TypeError, IAppliance, foo)
 
-
     def test_callbacks(self):
         """
         'installed' and 'uninstalled' callbacks should fire on
@@ -490,7 +494,6 @@ class DependencyTest(unittest.TestCase):
         dependency.uninstallFrom(e, foo)
         self.assertTrue(self.uninstallCallbackCalled)
 
-
     def test_onlyInstallPowerups(self):
         """
         Make sure onlyInstallPowerups doesn't load dependencies or prohibit
@@ -503,7 +506,7 @@ class DependencyTest(unittest.TestCase):
         dependency.onlyInstallPowerups(f, foo)
         self.assertEqual(list(foo.powerupsFor(IBreadConsumer)), [e, f])
         self.assertEqual(list(self.store.query(
-                    dependency._DependencyConnector)), [])
+            dependency._DependencyConnector)), [])
 
 
 class RequireFromSiteTests(unittest.TestCase):
@@ -518,7 +521,6 @@ class RequireFromSiteTests(unittest.TestCase):
         """
         self.store = Store()
 
-
     def test_requiresFromSite(self):
         """
         The value of a L{axiom.dependency.requiresFromSite} descriptor ought to
@@ -527,7 +529,6 @@ class RequireFromSiteTests(unittest.TestCase):
         dependency.installOn(RealGrid(store=self.store), self.store)
         substore = SubStore.createNew(self.store, ['sub']).open()
         self.assertEqual(PowerStrip(store=substore).draw(1), REAL_POWER)
-
 
     def test_requiresFromSiteDefault(self):
         """
@@ -539,7 +540,6 @@ class RequireFromSiteTests(unittest.TestCase):
         ps = PowerStrip(store=substore)
         self.assertEqual(ps.draw(1), FAKE_POWER)
         self.assertEqual(ps.grid.siteStore, self.store)
-
 
     def test_requiresFromSiteInSiteStore(self):
         """
@@ -570,7 +570,6 @@ class RequireFromSiteTests(unittest.TestCase):
         self.assertEqual(plant.grid.siteStore, self.store)
         self.assertEqual(plant.grid.draw(100), FAKE_POWER)
 
-
     def test_requiresFromSiteNoDefault(self):
         """
         The default function shouldn't be needed or invoked if its value isn't
@@ -579,8 +578,7 @@ class RequireFromSiteTests(unittest.TestCase):
         dependency.installOn(RealGrid(store=self.store), self.store)
         substore = SubStore.createNew(self.store, ['sub']).open()
         self.assertEqual(SpecifiedBadDefaults(store=substore).pump(),
-                          REAL_POWER)
-
+                         REAL_POWER)
 
     def test_requiresFromSiteUnspecifiedException(self):
         """
@@ -591,8 +589,7 @@ class RequireFromSiteTests(unittest.TestCase):
         lung = IronLung(store=self.store)
         siteLung = IronLung(
             store=SubStore.createNew(self.store, ['sub']).open())
-        self.assertRaises(UnsatisfiedRequirement, lambda : lung.grid)
-        self.assertRaises(UnsatisfiedRequirement, lambda : siteLung.grid)
+        self.assertRaises(UnsatisfiedRequirement, lambda: lung.grid)
+        self.assertRaises(UnsatisfiedRequirement, lambda: siteLung.grid)
         default = object()
         self.assertIdentical(getattr(lung, 'grid', default), default)
-

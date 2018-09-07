@@ -4,6 +4,7 @@ from axiom.attributes import integer, reference
 from axiom.item import Item, normalize
 from axiom.upgrade import registerUpgrader
 
+
 class Simple(Item):
     # Don't import the old schema. -exarkun
     typeName = normalize(
@@ -12,6 +13,7 @@ class Simple(Item):
     dummy = integer()
     selfReference = reference()
 
+
 def upgradeSimple1to2(old):
     # Force the upgrade.
     selfRef = old.store.getItemByID(old.storeID)
@@ -19,5 +21,6 @@ def upgradeSimple1to2(old):
         old.typeName, 1, 2,
         dummy=old.dummy,
         selfReference=selfRef)
+
 
 registerUpgrader(upgradeSimple1to2, Simple.typeName, 1, 2)

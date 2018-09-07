@@ -6,17 +6,17 @@ This module contains tests for the L{axiom.store.ItemQuery.paginate} method.
 
 from twisted.trial.unittest import TestCase
 
-
-from axiom.store import Store
-from axiom.item import Item
 from axiom.attributes import integer, compoundIndex
-
+from axiom.item import Item
+from axiom.store import Store
 from axiom.test.util import QueryCounter
+
 
 class SingleColumnSortHelper(Item):
     mainColumn = integer(indexed=True)
     other = integer()
     compoundIndex(mainColumn, other)
+
 
 class MultiColumnSortHelper(Item):
     columnOne = integer()
@@ -34,12 +34,12 @@ class CrossTransactionIteration(TestCase):
         b1 = SingleColumnSortHelper(store=s, mainColumn=1)
         b2 = SingleColumnSortHelper(store=s, mainColumn=2)
         b3 = SingleColumnSortHelper(store=s, mainColumn=3)
-        itr = s.transact(lambda : iter(s.query(SingleColumnSortHelper).paginate()))
+        itr = s.transact(
+            lambda: iter(s.query(SingleColumnSortHelper).paginate()))
         self.assertIdentical(s.transact(itr.__next__), b1)
-        self.assertEqual(s.transact(lambda : (next(itr), next(itr))),
-                          (b2, b3))
-        self.assertRaises(StopIteration, lambda : s.transact(itr.__next__))
-
+        self.assertEqual(s.transact(lambda: (next(itr), next(itr))),
+                         (b2, b3))
+        self.assertRaises(StopIteration, lambda: s.transact(itr.__next__))
 
     def test_moreItemsNotMoreWork(self):
         """
@@ -58,20 +58,20 @@ class CrossTransactionIteration(TestCase):
         self._checkEfficiency(s.query(SingleColumnSortHelper,
                                       sort=SingleColumnSortHelper.mainColumn.ascending))
 
-
     def test_moreItemsNotMoreWorkRestricted(self):
         s = Store()
         self._checkEfficiency(s.query(SingleColumnSortHelper,
                                       SingleColumnSortHelper.other == 6,
                                       sort=SingleColumnSortHelper.mainColumn.ascending))
 
-
     def _checkEfficiency(self, qry):
         s = qry.store
         mnum = [0]
+
         def more():
             mnum[0] += 1
             SingleColumnSortHelper(store=s, mainColumn=mnum[0], other=6)
+
         for i in range(5):
             more()
 
@@ -84,30 +84,29 @@ class CrossTransactionIteration(TestCase):
             # take a fixed amount of work, the next 10, and so on, but each
             # subsequent item will take 0, breaking our attempt to measure
             # below)
-            lambda : L.append(qry.paginate(pagesize=1)))
+            lambda: L.append(qry.paginate(pagesize=1)))
         self.assertEqual(m, 0)
         y = L.pop()
         g = iter(y)
         # startup costs a little more, so ignore that
         # s.debug = True
-        what = qc.measure(g.__next__)                # 1
-        oneunit = qc.measure(g.__next__)                   # 2
+        what = qc.measure(g.__next__)  # 1
+        oneunit = qc.measure(g.__next__)  # 2
         otherunit = qc.measure(g.__next__)
-        self.assertEqual(otherunit, oneunit) # 3
+        self.assertEqual(otherunit, oneunit)  # 3
         # Now, make some more data
 
         for i in range(3):
             more()
         # and make sure that doesn't increase the amount of work
-        self.assertEqual(qc.measure(g.__next__), oneunit) # 4
-        self.assertEqual(qc.measure(g.__next__), oneunit) # 5
-        self.assertEqual(qc.measure(g.__next__), oneunit) # 6
+        self.assertEqual(qc.measure(g.__next__), oneunit)  # 4
+        self.assertEqual(qc.measure(g.__next__), oneunit)  # 5
+        self.assertEqual(qc.measure(g.__next__), oneunit)  # 6
 
         # one more sanity check - we're at the end.
         self.assertEqual(g.next().mainColumn, 7)
         self.assertEqual(g.next().mainColumn, 8)
         self.assertEqual(list(g), [])
-
 
     def test_storeIDTiebreaker(self):
         """
@@ -115,7 +114,8 @@ class CrossTransactionIteration(TestCase):
         deterministically ordered.
         """
         s = Store()
-        x = [SingleColumnSortHelper(store=s, mainColumn=1234) for nothing in range(10)]
+        x = [SingleColumnSortHelper(store=s, mainColumn=1234) for nothing in
+             range(10)]
         first = SingleColumnSortHelper(store=s, mainColumn=1233)
         last = SingleColumnSortHelper(store=s, mainColumn=1235)
         # This is sensitive to page size, so let's test it at lots of places
@@ -130,18 +130,17 @@ class CrossTransactionIteration(TestCase):
             # 'ascending'.  If you want guaranteed stability on storeID, do that.
             self.assertEqual(
                 list(s.query(
-                        SingleColumnSortHelper,
-                        sort=SingleColumnSortHelper.mainColumn.descending
-                        ).paginate(pagesize=pagesize)),
+                    SingleColumnSortHelper,
+                    sort=SingleColumnSortHelper.mainColumn.descending
+                ).paginate(pagesize=pagesize)),
                 [last] + x + [first])
 
             self.assertEqual(
                 list(s.query(
-                        SingleColumnSortHelper,
-                        sort=SingleColumnSortHelper.mainColumn.ascending
-                        ).paginate(pagesize=pagesize)),
+                    SingleColumnSortHelper,
+                    sort=SingleColumnSortHelper.mainColumn.ascending
+                ).paginate(pagesize=pagesize)),
                 [first] + x + [last])
-
 
     def test_moreThanOneColumnSort(self):
         """
@@ -158,14 +157,12 @@ class CrossTransactionIteration(TestCase):
         y4 = MultiColumnSortHelper(store=s, columnOne=2, columnTwo=4)
         z = MultiColumnSortHelper(store=s, columnOne=3, columnTwo=5)
         self.assertEqual(list(
-                s.query(MultiColumnSortHelper,
-                        sort=[MultiColumnSortHelper.columnOne.ascending,
-                              MultiColumnSortHelper.columnTwo.ascending]
-                        ).paginate(pagesize=1)),
-                          [x, y1, y2, y3, y4, z])
+            s.query(MultiColumnSortHelper,
+                    sort=[MultiColumnSortHelper.columnOne.ascending,
+                          MultiColumnSortHelper.columnTwo.ascending]
+                    ).paginate(pagesize=1)),
+            [x, y1, y2, y3, y4, z])
 
     test_moreThanOneColumnSort.todo = (
         "There's no use-case for this yet, but it would be a consistent "
         "extension of the API.")
-
-

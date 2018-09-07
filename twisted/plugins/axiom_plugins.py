@@ -4,11 +4,10 @@
 Axiom plugins for Twisted.
 """
 
-from zope.interface import classProvides
-
-from twisted.plugin import IPlugin, getPlugins
-from twisted.python.usage import Options
 from twisted.application.service import IServiceMaker, IService, Service
+from twisted.plugin import IPlugin
+from twisted.python.usage import Options
+from zope.interface import provider
 
 
 class _CheckSystemVersion(Service):
@@ -18,21 +17,20 @@ class _CheckSystemVersion(Service):
 
     @ivar store: The L{Store} in which to update version information.
     """
+
     def __init__(self, store):
         self.store = store
-
 
     def startService(self):
         from axiom.listversions import checkSystemVersion
         checkSystemVersion(self.store)
 
 
-
+@provider(IPlugin, IServiceMaker)
 class AxiomaticStart(object):
     """
     L{IServiceMaker} plugin which gets an L{IService} from an Axiom store.
     """
-    classProvides(IPlugin, IServiceMaker)
 
     tapname = "axiomatic-start"
     description = "Run an Axiom database (use 'axiomatic start' instead)"
@@ -41,10 +39,9 @@ class AxiomaticStart(object):
         optParameters = [
             ('dbdir', 'd', None, 'Path containing Axiom database to start'),
             ('journal-mode', None, None, 'SQLite journal mode to set'),
-            ]
+        ]
 
         optFlags = [('debug', 'b', 'Enable Axiom-level debug logging')]
-
 
     def makeService(cls, options):
         """
@@ -59,6 +56,7 @@ class AxiomaticStart(object):
         service = IService(store)
         _CheckSystemVersion(store).setServiceParent(service)
         return service
+
     makeService = classmethod(makeService)
 
 

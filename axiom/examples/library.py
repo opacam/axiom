@@ -1,19 +1,23 @@
-
 import random
 
-from axiom.item import Item
-from axiom.attributes import text, timestamp, reference, integer, AND, OR
-from axiom.store import Store
 from epsilon import extime
+
+from axiom.attributes import text, timestamp, reference, integer, AND, OR
+from axiom.item import Item
+from axiom.store import Store
 
 _d = extime.Time.fromISO8601TimeAndDate
 
 _books = [
-    ('Heart of Darkness', 'Joseph Conrad', '0486264645', 80, _d('1990-07-01T00:00:00.000001')),
-    ('The Dark Tower, Book 7', 'Stephen King', '1880418622', 864, _d('2004-11-21T00:00:00.000001')),
-    ('Guns, Germs, and Steel: The Fates of Human Societies', 'Jared Diamond', '0393317552', 480, _d('1999-04-01T00:00:00.000001')),
-    ('The Lions of al-Rassan', 'Guy Gavriel Kay', '0060733497', 528, _d('2005-06-28T00:00:00.000001')),
-    ]
+    ('Heart of Darkness', 'Joseph Conrad', '0486264645', 80,
+     _d('1990-07-01T00:00:00.000001')),
+    ('The Dark Tower, Book 7', 'Stephen King', '1880418622', 864,
+     _d('2004-11-21T00:00:00.000001')),
+    ('Guns, Germs, and Steel: The Fates of Human Societies', 'Jared Diamond',
+     '0393317552', 480, _d('1999-04-01T00:00:00.000001')),
+    ('The Lions of al-Rassan', 'Guy Gavriel Kay', '0060733497', 528,
+     _d('2005-06-28T00:00:00.000001')),
+]
 
 _borrowers = ['Anne', 'Bob', 'Carol', 'Dave']
 
@@ -22,6 +26,7 @@ class Borrower(Item):
     typeName = 'borrower'
     schemaVersion = 1
     name = text(indexed=True)
+
 
 class Book(Item):
     typeName = 'book'
@@ -35,6 +40,7 @@ class Book(Item):
 
     lentTo = reference()
     library = reference()
+
 
 class LendingLibrary(Item):
     typeName = 'lending_library'
@@ -65,12 +71,11 @@ class LendingLibrary(Item):
                 library=self,
                 store=self.store)
 
-
     def displayBooks(self):
         for book in self.books():
             print(book.title, end=' ')
             if book.lentTo is not None:
-                print('lent to', '['+book.lentTo.name+']')
+                print('lent to', '[' + book.lentTo.name + ']')
             else:
                 print('in library')
 
@@ -84,6 +89,7 @@ class LendingLibrary(Item):
                 borrower = random.choice(_borrowers)
                 print('Lending', book.title, 'to', borrower)
                 book.lentTo = self.getBorrower(borrower)
+
 
 def main(s):
     for ll in s.query(LendingLibrary):
@@ -102,10 +108,10 @@ def main(s):
     ll.shuffleLending()
     print('---')
 
-    print(s.count(Book, AND (Book.author == 'Stephen King',
-                             Book.title == 'The Lions of al-Rassan')))
-    print(s.count(Book, OR (Book.author == 'Stephen King',
+    print(s.count(Book, AND(Book.author == 'Stephen King',
                             Book.title == 'The Lions of al-Rassan')))
+    print(s.count(Book, OR(Book.author == 'Stephen King',
+                           Book.title == 'The Lions of al-Rassan')))
 
 
 if __name__ == '__main__':

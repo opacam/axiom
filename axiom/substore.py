@@ -1,26 +1,22 @@
 # -*- test-case-name: axiom.test.test_substore -*-
 
-from zope.interface import implements
-
 from twisted.application import service
+from zope.interface import implementer
 
-from axiom.iaxiom import IPowerupIndirector
-
-from axiom.store import Store
-from axiom.item import Item
 from axiom.attributes import path, inmemory, reference
-
+from axiom.iaxiom import IPowerupIndirector
+from axiom.item import Item
+from axiom.store import Store
 from axiom.upgrade import registerUpgrader
 
-class SubStore(Item):
 
+@implementer(IPowerupIndirector)
+class SubStore(Item):
     schemaVersion = 1
     typeName = 'substore'
 
     storepath = path()
     substore = inmemory()
-
-    implements(IPowerupIndirector)
 
     def createNew(cls, store, pathSegments):
         """
@@ -40,12 +36,10 @@ class SubStore(Item):
 
     createNew = classmethod(createNew)
 
-
     def close(self):
         self.substore.close()
         del self.substore._openSubStore
         del self.substore
-
 
     def open(self, debug=None):
         if hasattr(self, 'substore'):
@@ -53,24 +47,26 @@ class SubStore(Item):
         else:
             if debug is None:
                 debug = self.store.debug
-            s = self.substore = self.createStore(debug, self.store.journalMode)
-            s._openSubStore = self # don't fall out of cache as long as the
-                                   # store is alive!
-            return s
+            s = self.substore = self.createStore(
+                debug, self.store.journalMode)
 
+            # don't fall out of cache as long as the
+            # store is alive!
+            s._openSubStore = self
+            return s
 
     def createStore(self, debug, journalMode=None):
         """
         Create the actual Store this Substore represents.
         """
         if self.storepath is None:
-            self.store._memorySubstores.append(self) # don't fall out of cache
+            self.store._memorySubstores.append(self)  # don't fall out of cache
             if self.store.filesdir is None:
                 filesdir = None
             else:
                 filesdir = (self.store.filesdir.child("_substore_files")
-                                               .child(str(self.storeID))
-                                               .path)
+                            .child(str(self.storeID))
+                            .path)
             return Store(parent=self.store,
                          filesdir=filesdir,
                          idInParent=self.storeID,
@@ -95,7 +91,6 @@ class SubStore(Item):
         ifa = interface(self.open(debug=self.store.debug), None)
         return ifa
 
-
     def indirect(self, interface):
         """
         Like __conform__, I adapt my store to whatever interface I am asked to
@@ -104,7 +99,6 @@ class SubStore(Item):
         additional item type for each interface that we might wish to adapt to.
         """
         return interface(self)
-
 
 
 class SubStoreStartupService(Item, service.Service):
@@ -119,8 +113,11 @@ class SubStoreStartupService(Item, service.Service):
 
     schemaVersion = 2
 
+
 def eliminateSubStoreStartupService(subservice):
     subservice.deleteFromStore()
     return None
 
-registerUpgrader(eliminateSubStoreStartupService, SubStoreStartupService.typeName, 1, 2)
+
+registerUpgrader(eliminateSubStoreStartupService,
+                 SubStoreStartupService.typeName, 1, 2)

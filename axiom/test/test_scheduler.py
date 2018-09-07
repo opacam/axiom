@@ -3,37 +3,42 @@
 import gc
 from datetime import timedelta
 
-from twisted.trial import unittest
-from twisted.trial.unittest import TestCase
 from twisted.application.service import IService
 from twisted.internet.task import Clock
 from twisted.python import filepath
+from twisted.trial import unittest
+from twisted.trial.unittest import TestCase
 
+from axiom.attributes import integer, text, inmemory, \
+    boolean, timestamp
+from axiom.iaxiom import IScheduler
+from axiom.item import Item
+from axiom.scheduler import SITE_SCHEDULER
+from axiom.scheduler import Scheduler, SubScheduler
+from axiom.scheduler import TimedEvent, \
+    _SubSchedulerParentHook, \
+    TimedEventFailureLog
+from axiom.store import Store
+from axiom.substore import SubStore
 from epsilon.extime import Time
 
-from axiom.scheduler import TimedEvent, _SubSchedulerParentHook, TimedEventFailureLog
-from axiom.scheduler import Scheduler, SubScheduler
-from axiom.scheduler import SITE_SCHEDULER
-from axiom.store import Store
-from axiom.item import Item
-from axiom.substore import SubStore
-
-from axiom.attributes import integer, text, inmemory, boolean, timestamp
-from axiom.iaxiom import IScheduler
 
 class TestEvent(Item):
-
     typeName = 'test_event'
     schemaVersion = 1
 
-    testCase = inmemory()       # this won't fall out of memory due to
-                                # caching, thanks.
+    # this won't fall out of memory
+    # due to caching, thanks.
+    testCase = inmemory()
+
     name = text()
 
     runCount = integer()
-    runAgain = integer()        # milliseconds to add, then run again
-    winner = integer(default=0) # is this the event that is supposed to
-                                # complete the test successfully?
+
+    # milliseconds to add, then run again is this the event
+    # that is supposed to complete the test successfully?
+    runAgain = integer()
+    winner = integer(default=0)
 
     def __init__(self, **kw):
         super(TestEvent, self).__init__(**kw)
@@ -51,7 +56,8 @@ class TestEvent(Item):
                 if isinstance(evt.runnable, _SubSchedulerParentHook):
                     count += 1
             if count > 1:
-                return self.fail("Too many TimedEvents for the SubStore: %d" % (count,))
+                return self.fail(
+                    "Too many TimedEvents for the SubStore: %d" % (count,))
 
         self.runCount += 1
         if self.runAgain is not None:
@@ -68,8 +74,10 @@ class TestEvent(Item):
 class NotActuallyRunnable(Item):
     huhWhat = integer()
 
+
 class SpecialError(Exception):
     pass
+
 
 class SpecialErrorHandler(Item):
     huhWhat = integer()
@@ -85,7 +93,6 @@ class SpecialErrorHandler(Item):
         self.procd = 1
 
 
-
 class HookRunner(Item):
     """
     Runnable that simply calls a supplied hook.
@@ -97,11 +104,9 @@ class HookRunner(Item):
         self.hook(self)
 
 
-
 class SchedTest:
     def tearDown(self):
         return IService(self.siteStore).stopService()
-
 
     def setUp(self):
         self.clock = Clock()
@@ -110,22 +115,18 @@ class SchedTest:
         self.stubTime(scheduler)
         IService(self.siteStore).startService()
 
-
     def now(self):
         return Time.fromPOSIXTimestamp(self.clock.seconds())
-
 
     def stubTime(self, scheduler):
         scheduler.callLater = self.clock.callLater
         scheduler.now = self.now
-
 
     def test_implementsSchedulerInterface(self):
         """
         Verify that IScheduler is declared as implemented.
         """
         self.assertTrue(IScheduler.providedBy(IScheduler(self.store)))
-
 
     def test_scheduler(self):
         """
@@ -163,14 +164,14 @@ class SchedTest:
         self.assertEqual(t2.runCount, 2)
         self.assertEqual(t3.runCount, 0)
 
-
     def test_unscheduling(self):
         """
         Test the unscheduleFirst method of the scheduler.
         """
         sch = IScheduler(self.store)
         t1 = TestEvent(testCase=self, name='t1', store=self.store)
-        t2 = TestEvent(testCase=self, name='t2', store=self.store, runAgain=None)
+        t2 = TestEvent(testCase=self, name='t2', store=self.store,
+                       runAgain=None)
 
         sch.schedule(t1, self.now() + timedelta(seconds=1))
         sch.schedule(t2, self.now() + timedelta(seconds=2))
@@ -178,7 +179,6 @@ class SchedTest:
         self.clock.advance(3)
         self.assertEqual(t1.runCount, 0)
         self.assertEqual(t2.runCount, 1)
-
 
     def test_inspection(self):
         """
@@ -197,7 +197,6 @@ class SchedTest:
             list(sch.scheduledTimes(runnable)),
             [now, now + off, now + off + off])
 
-
     def test_scheduledTimesDuringRun(self):
         """
         L{Scheduler.scheduledTimes} should not include scheduled times that have
@@ -215,7 +214,6 @@ class SchedTest:
         scheduler.schedule(runner, then)
         self.clock.advance(1)
         self.assertEqual(futureTimes, [[then], []])
-
 
     def test_deletedRunnable(self):
         """
@@ -243,12 +241,10 @@ class SchedTest:
             None)
 
 
-
 class TopStoreSchedTest(SchedTest, TestCase):
     def setUp(self):
         self.store = self.siteStore = Store()
         super(TopStoreSchedTest, self).setUp()
-
 
     def test_namedService(self):
         """
@@ -258,7 +254,6 @@ class TopStoreSchedTest(SchedTest, TestCase):
         self.assertIdentical(
             IService(self.store).getServiceNamed(SITE_SCHEDULER),
             IScheduler(self.store))
-
 
     def testBasicScheduledError(self):
         S = IScheduler(self.store)
@@ -301,11 +296,11 @@ class TopStoreSchedTest(SchedTest, TestCase):
         self.assertFalse(spec.broken)
 
 
-
 class SubSchedulerTests(SchedTest, TestCase):
     """
     Tests for the substore implementation of IScheduler.
     """
+
     def setUp(self):
         """
         Create a site store for the substore which will contain the IScheduler
@@ -322,7 +317,6 @@ class SubSchedulerTests(SchedTest, TestCase):
 
         self.store = self.substore
 
-
     def test_now(self):
         """
         The user store's L{IScheduler} powerup's C{now} method returns whatever
@@ -336,7 +330,6 @@ class SubSchedulerTests(SchedTest, TestCase):
             self.scheduler.now(),
             Time.fromPOSIXTimestamp(self.clock.seconds()))
 
-
     def test_scheduleAfterParentHookError(self):
         """
         A transient error during a L{_SubSchedulerParentHook} run (such as
@@ -349,8 +342,10 @@ class SubSchedulerTests(SchedTest, TestCase):
 
         self.scheduler.schedule(runnable, self.now() + timedelta(seconds=1))
         hook = self.siteStore.findUnique(_SubSchedulerParentHook)
+
         def stumble():
             raise IOError('Denied')
+
         object.__setattr__(hook, 'run', stumble)
         self.clock.advance(1)
         object.__delattr__(hook, 'run')
@@ -370,27 +365,23 @@ class SubSchedulerTests(SchedTest, TestCase):
         self.assertEqual(runnable.runCount, 2)
 
 
-
 class SchedulerStartupTests(TestCase):
     """
     Tests for behavior relating to L{Scheduler} service startup.
     """
+
     def setUp(self):
         self.clock = Clock()
         self.store = Store()
 
-
     def tearDown(self):
         return self.stopStoreService()
-
 
     def now(self):
         return Time.fromPOSIXTimestamp(self.clock.seconds())
 
-
     def time(self, offset):
         return self.now() + timedelta(seconds=offset)
-
 
     def makeScheduler(self):
         """
@@ -401,7 +392,6 @@ class SchedulerStartupTests(TestCase):
         scheduler.now = self.now
         return scheduler
 
-
     def startStoreService(self):
         """
         Start the Store Service.
@@ -409,12 +399,10 @@ class SchedulerStartupTests(TestCase):
         service = IService(self.store)
         service.startService()
 
-
     def stopStoreService(self):
         service = IService(self.store)
         if service.running:
             return service.stopService()
-
 
     def test_schedulerStartsWhenServiceStarts(self):
         """
@@ -426,7 +414,6 @@ class SchedulerStartupTests(TestCase):
         scheduler = service.getServiceNamed(SITE_SCHEDULER)
         self.assertTrue(scheduler.running)
 
-
     def test_scheduleWhileStopped(self):
         """
         Test that a schedule call on a L{Scheduler} which has not been started
@@ -435,7 +422,6 @@ class SchedulerStartupTests(TestCase):
         scheduler = self.makeScheduler()
         scheduler.schedule(TestEvent(store=self.store), self.time(1))
         self.assertEqual(self.clock.calls, [])
-
 
     def test_scheduleWithRunningService(self):
         """
@@ -447,7 +433,6 @@ class SchedulerStartupTests(TestCase):
         scheduler = self.makeScheduler()
         scheduler.schedule(TestEvent(store=self.store), self.time(1))
         self.assertEqual(len(self.clock.calls), 1)
-
 
     def test_schedulerStartedWithPastEvent(self):
         """
@@ -461,7 +446,6 @@ class SchedulerStartupTests(TestCase):
         self.startStoreService()
         self.assertEqual(len(self.clock.calls), 1)
 
-
     def test_schedulerStartedWithFutureEvent(self):
         """
         Test that an existing Scheduler with a TimedEvent in the future is
@@ -473,7 +457,6 @@ class SchedulerStartupTests(TestCase):
         self.startStoreService()
         self.assertEqual(len(self.clock.calls), 1)
 
-
     def test_schedulerStopped(self):
         """
         Test that when the Store Service is stopped, the Scheduler's transient
@@ -481,11 +464,12 @@ class SchedulerStartupTests(TestCase):
         """
         self.test_scheduleWithRunningService()
         d = self.stopStoreService()
+
         def cbStopped(ignored):
             self.assertEqual(self.clock.calls, [])
+
         d.addCallback(cbStopped)
         return d
-
 
 
 class MissingService(unittest.TestCase):
@@ -506,10 +490,8 @@ class MissingService(unittest.TestCase):
         self.siteScheduler = IScheduler(self.store)
         self.siteScheduler.callLater = self._callLater
 
-
     def _callLater(self, s, f, *a, **k):
         self.calls.append((s, f, a, k))
-
 
     def test_schedule(self):
         """
@@ -517,7 +499,6 @@ class MissingService(unittest.TestCase):
         running, not transient scheduling (eg, reactor.callLater) is performed.
         """
         return self._testSchedule(self.siteScheduler)
-
 
     def test_subSchedule(self):
         """
@@ -528,15 +509,13 @@ class MissingService(unittest.TestCase):
         subscheduler = IScheduler(substore)
         return self._testSchedule(subscheduler)
 
-
     def _testSchedule(self, scheduler):
         t1 = TestEvent(store=scheduler.store)
         scheduler.schedule(t1, Time.fromPOSIXTimestamp(0))
         self.assertFalse(self.calls,
-                    "Should not have had any calls: %r" % (self.calls,))
+                         "Should not have had any calls: %r" % (self.calls,))
         self.assertIdentical(
             scheduler._getNextEvent(Time.fromPOSIXTimestamp(1)).runnable, t1)
-
 
 
 class ScheduleCallingItem(Item):
@@ -554,7 +533,6 @@ class ScheduleCallingItem(Item):
         self.ran = True
 
 
-
 class NullRunnable(Item):
     """
     Runnable item which does nothing.
@@ -565,11 +543,11 @@ class NullRunnable(Item):
         pass
 
 
-
 class SubStoreSchedulerReentrancy(TestCase):
     """
     Test re-entrant scheduling calls on an item run by a SubScheduler.
     """
+
     def setUp(self):
         self.clock = Clock()
 
@@ -582,23 +560,23 @@ class SubStoreSchedulerReentrancy(TestCase):
         self.subscheduler = IScheduler(self.substore)
 
         self.scheduler.callLater = self.clock.callLater
-        self.scheduler.now = lambda: Time.fromPOSIXTimestamp(self.clock.seconds())
-        self.subscheduler.now = lambda: Time.fromPOSIXTimestamp(self.clock.seconds())
+        self.scheduler.now = lambda: Time.fromPOSIXTimestamp(
+            self.clock.seconds())
+        self.subscheduler.now = lambda: Time.fromPOSIXTimestamp(
+            self.clock.seconds())
 
         IService(self.store).startService()
-
 
     def tearDown(self):
         return IService(self.store).stopService()
 
-
     def _scheduleRunner(self, now, offset):
         scheduledAt = Time.fromPOSIXTimestamp(now + offset)
         rescheduleFor = Time.fromPOSIXTimestamp(now + offset + 10)
-        runnable = ScheduleCallingItem(store=self.substore, rescheduleFor=rescheduleFor)
+        runnable = ScheduleCallingItem(store=self.substore,
+                                       rescheduleFor=rescheduleFor)
         self.subscheduler.schedule(runnable, scheduledAt)
         return runnable
-
 
     def testSchedule(self):
         """
@@ -621,7 +599,6 @@ class SubStoreSchedulerReentrancy(TestCase):
         self.assertEqual(
             list(self.scheduler.scheduledTimes(hook)),
             [Time.fromPOSIXTimestamp(now + 20)])
-
 
     def testScheduleWithLaterTimedEvents(self):
         """
@@ -654,7 +631,6 @@ class SubStoreSchedulerReentrancy(TestCase):
             list(self.scheduler.scheduledTimes(hook)),
             [Time.fromPOSIXTimestamp(20)])
 
-
     def testScheduleWithEarlierTimedEvents(self):
         """
         Like L{testSchedule}, but use a SubScheduler which has pre-existing
@@ -684,7 +660,6 @@ class SubStoreSchedulerReentrancy(TestCase):
             list(self.scheduler.scheduledTimes(hook)),
             [Time.fromPOSIXTimestamp(now + 15)])
 
-
     def testMultipleEventsPerTick(self):
         """
         Test running several runnables in a single tick of the subscheduler.
@@ -711,7 +686,6 @@ class SubStoreSchedulerReentrancy(TestCase):
             [Time.fromPOSIXTimestamp(now + 20)])
 
 
-
 class BackwardsCompatibilitySchedTests(object):
     """
     L{Scheduler} and L{SubScheduler} are going to be removed.  In the mean
@@ -724,6 +698,7 @@ class BackwardsCompatibilitySchedTests(object):
     @ivar schedulerType: L{Scheduler} or L{SubScheduler}, whichever is to be
         tested.
     """
+
     def setUp(self):
         """
         Create a store with an instance of C{self.schedulerType} in it.
@@ -736,9 +711,8 @@ class BackwardsCompatibilitySchedTests(object):
         self.assertEqual(
             warnings[0]['message'],
             self.schedulerType.__name__ + " is deprecated since Axiom 0.5.32.  "
-            "Just adapt stores to IScheduler.")
+                                          "Just adapt stores to IScheduler.")
         self.scheduler = IScheduler(self.store)
-
 
     def _checkSynonym(self, name):
         # Whatever the value of the attribute is on the _SiteScheduler or
@@ -754,13 +728,11 @@ class BackwardsCompatibilitySchedTests(object):
         setattr(self.oldScheduler, name, bar)
         self.assertIdentical(getattr(self.scheduler, name), bar)
 
-
     def test_now(self):
         """
         L{Scheduler.now} is a synonym for L{_SiteScheduler.now}.
         """
         self._checkSynonym("now")
-
 
     def test_tick(self):
         """
@@ -768,13 +740,11 @@ class BackwardsCompatibilitySchedTests(object):
         """
         self._checkSynonym("tick")
 
-
     def test_schedule(self):
         """
         L{Scheduler.schedule} is a synonym for L{_SiteScheduler.schedule}.
         """
         self._checkSynonym("schedule")
-
 
     def test_scheduledTimes(self):
         """
@@ -783,7 +753,6 @@ class BackwardsCompatibilitySchedTests(object):
         """
         self._checkSynonym("scheduledTimes")
 
-
     def test_unscheduleAll(self):
         """
         L{Scheduler.unscheduleAll} is a synonym for
@@ -791,14 +760,12 @@ class BackwardsCompatibilitySchedTests(object):
         """
         self._checkSynonym("unscheduleAll")
 
-
     def test_reschedule(self):
         """
         L{Scheduler.reschedule} is a synonym for
         L{_SiteScheduler.reschedule}.
         """
         self._checkSynonym("reschedule")
-
 
     def test_deprecated(self):
         """
@@ -815,12 +782,13 @@ class BackwardsCompatibilitySchedTests(object):
         self.assertEqual(warnings[0]['category'], PendingDeprecationWarning)
         self.assertEqual(
             warnings[0]['message'],
-            self.schedulerType.__name__ + " is deprecated since Axiom 0.5.32.  "
+            self.schedulerType.__name__ +
+            " is deprecated since Axiom 0.5.32.  "
             "Just adapt stores to IScheduler.")
 
 
-
-class BackwardsCompatibilitySchedulerTests(BackwardsCompatibilitySchedTests, TestCase):
+class BackwardsCompatibilitySchedulerTests(BackwardsCompatibilitySchedTests,
+                                           TestCase):
     schedulerType = Scheduler
 
     def test_interface(self):
@@ -832,8 +800,8 @@ class BackwardsCompatibilitySchedulerTests(BackwardsCompatibilitySchedTests, Tes
         self.assertTrue(IService.providedBy(self.oldScheduler))
 
 
-
-class BackwardsCompatibilitySubSchedulerTests(BackwardsCompatibilitySchedTests, TestCase):
+class BackwardsCompatibilitySubSchedulerTests(BackwardsCompatibilitySchedTests,
+                                              TestCase):
     schedulerType = SubScheduler
 
     def test_interface(self):

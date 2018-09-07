@@ -1,24 +1,23 @@
 # -*- test-case-name: axiom.test.test_attributes -*-
 
-import random
 import gc
-from decimal import Decimal
+import random
 from datetime import timedelta
-
-from epsilon.extime import Time
-
-from twisted.trial.unittest import TestCase
-from twisted.python.reflect import qual
+from decimal import Decimal
 
 from hypothesis import given, strategies as st
+from twisted.python.reflect import qual
+from twisted.trial.unittest import TestCase
 
-from axiom.store import Store
-from axiom.item import Item, normalize, Placeholder
 from axiom.attributes import (
     Comparable, SQLAttribute, integer, timestamp, textlist, ConstraintError,
     ieee754_double, point1decimal, money, text)
+from axiom.item import Item, normalize, Placeholder
+from axiom.store import Store
+from epsilon.extime import Time
 from axiom.test.strategies import (
     axiomText, axiomIntegers, fixedDecimals, textlists, timestamps)
+
 
 class Number(Item):
     typeName = 'test_number'
@@ -41,12 +40,11 @@ class IEEE754DoubleTest(TestCase):
             Number(store=s,
                    value=0.1)
         self.assertNotEqual(s.query(Number).getColumn("value").sum(),
-                             1.0)
+                            1.0)
 
         # This isn't really a unit test.  It's documentation.
         self.assertEqual(s.query(Number).getColumn("value").sum(),
-                          0.99999999999999989)
-
+                         0.99999999999999989)
 
 
 class _Integer(Item):
@@ -56,14 +54,13 @@ class _Integer(Item):
     value = integer()
 
 
-
 class IntegerTests(TestCase):
     """
     Tests for L{integer} attributes.
     """
+
     def setUp(self):
         self.store = Store()
-
 
     def test_roundtrip(self):
         """
@@ -72,7 +69,6 @@ class IntegerTests(TestCase):
         i = _Integer(store=self.store, value=42)
         self.assertEqual(i.value, 42)
 
-
     def test_roundtripLong(self):
         """
         A Python long roundtrips through an integer attribute.
@@ -80,19 +76,21 @@ class IntegerTests(TestCase):
         i = _Integer(store=self.store, value=42)
         self.assertEqual(i.value, 42)
 
-
     def test_magnitudeBound(self):
         """
         Storing a value larger than what SQLite supports raises an exception.
         """
         i = _Integer()
-        self.assertRaises(ConstraintError, _Integer, value=9999999999999999999)
-        self.assertRaises(ConstraintError, _Integer, value=9223372036854775808)
+        self.assertRaises(ConstraintError, _Integer,
+                          value=9999999999999999999)
+        self.assertRaises(ConstraintError, _Integer,
+                          value=9223372036854775808)
         _Integer(value=9223372036854775807)
         _Integer(value=-9223372036854775808)
-        self.assertRaises(ConstraintError, _Integer, value=-9223372036854775809)
-        self.assertRaises(ConstraintError, _Integer, value=-9999999999999999999)
-
+        self.assertRaises(ConstraintError, _Integer,
+                          value=-9223372036854775809)
+        self.assertRaises(ConstraintError, _Integer,
+                          value=-9999999999999999999)
 
 
 class DecimalDoodad(Item):
@@ -101,6 +99,7 @@ class DecimalDoodad(Item):
     extraintegral = integer()
     money = money(default=0)
 
+
 class FixedPointDecimalTest(TestCase):
     def testSum(self):
         s = Store()
@@ -108,17 +107,18 @@ class FixedPointDecimalTest(TestCase):
             DecimalDoodad(store=s,
                           money=Decimal("0.10"))
         self.assertEqual(s.query(DecimalDoodad).getColumn("money").sum(),
-                          1)
+                         1)
 
     def testRoundTrip(self):
         s = Store()
         DecimalDoodad(store=s, integral=19947,
                       money=Decimal("4.3"),
                       otherMoney=Decimal("-17.94"))
-        gc.collect() # Force the item to be reloaded from the database
+        gc.collect()  # Force the item to be reloaded from the database
         self.assertEqual(s.findFirst(DecimalDoodad).integral, 19947)
         self.assertEqual(s.findFirst(DecimalDoodad).money, Decimal("4.3"))
-        self.assertEqual(s.findFirst(DecimalDoodad).otherMoney, Decimal("-17.9400"))
+        self.assertEqual(s.findFirst(DecimalDoodad).otherMoney,
+                         Decimal("-17.9400"))
 
     def testComparisons(self):
         s = Store()
@@ -142,7 +142,6 @@ class FixedPointDecimalTest(TestCase):
                     DecimalDoodad.money == Decimal("19947")).count(),
             1)
 
-
     def testDisallowedComparisons(self):
         # These tests should go away; it's (mostly) possible to support
         # comparison of different precisions:
@@ -154,19 +153,20 @@ class FixedPointDecimalTest(TestCase):
         # sqlite> select 3/2;
         # 1
 
-
         s = Store()
         DecimalDoodad(store=s,
                       integral=1,
                       money=1)
 
-        self.assertRaises(TypeError,
-                          lambda : s.query(
+        self.assertRaises(
+            TypeError,
+            lambda: s.query(
                 DecimalDoodad,
                 DecimalDoodad.integral == DecimalDoodad.money))
 
-        self.assertRaises(TypeError,
-                          lambda : s.query(
+        self.assertRaises(
+            TypeError,
+            lambda: s.query(
                 DecimalDoodad,
                 DecimalDoodad.integral == DecimalDoodad.extraintegral))
 
@@ -180,6 +180,7 @@ class SpecialStoreIDAttributeTest(TestCase):
         self.assertRaises(TypeError, s.getItemByID, float(sid))
         self.assertRaises(TypeError, s.getItemByID, str(sid))
 
+
 class SortedItem(Item):
     typeName = 'test_sorted_thing'
     schemaVersion = 1
@@ -187,6 +188,7 @@ class SortedItem(Item):
     goingUp = integer()
     goingDown = integer()
     theSame = integer()
+
 
 class SortingTest(TestCase):
 
@@ -201,8 +203,8 @@ class SortingTest(TestCase):
                             theSame=8))
         for x in r10:
             L.append(SortedItem(store=s,
-                                goingUp=10+x,
-                                goingDown=10-x,
+                                goingUp=10 + x,
+                                goingDown=10 - x,
                                 theSame=7))
 
         for colnms in [['goingUp'],
@@ -211,20 +213,24 @@ class SortingTest(TestCase):
                        ['theSame', 'goingUp'],
                        ['theSame', 'storeID']]:
             LN = L[:]
-            LN.sort(key=lambda si: tuple([getattr(si, colnm) for colnm in colnms]))
+            LN.sort(
+                key=lambda si: tuple([getattr(si, colnm) for colnm in colnms]))
 
-            ascsort = [getattr(SortedItem, colnm).ascending for colnm in colnms]
-            descsort = [getattr(SortedItem, colnm).descending for colnm in colnms]
+            ascsort = [getattr(SortedItem, colnm).ascending for colnm in
+                       colnms]
+            descsort = [getattr(SortedItem, colnm).descending for colnm in
+                        colnms]
 
             self.assertEqual(LN, list(s.query(SortedItem,
-                                               sort=ascsort)))
+                                              sort=ascsort)))
             LN.reverse()
             self.assertEqual(LN, list(s.query(SortedItem,
-                                               sort=descsort)))
+                                              sort=descsort)))
 
 
 class FunkyItem(Item):
     name = str()
+
 
 class BadAttributeTest(TestCase):
 
@@ -234,7 +240,7 @@ class BadAttributeTest(TestCase):
         """
         s = Store()
         err = self.assertRaises(AttributeError,
-                                    FunkyItem, store=s, name="foo")
+                                FunkyItem, store=s, name="foo")
         self.assertEqual(str(err), "'FunkyItem' can't set attribute 'name'")
 
 
@@ -247,33 +253,36 @@ class WhiteboxComparableTest(TestCase):
         """
         self.assertRaises(TypeError, Comparable()._like, 'XYZ')
 
+
 someRandomDate = Time.fromISO8601TimeAndDate("1980-05-29")
+
 
 class DatedThing(Item):
     date = timestamp(default=someRandomDate)
 
+
 class CreationDatedThing(Item):
-    creationDate = timestamp(defaultFactory=lambda : Time())
+    creationDate = timestamp(defaultFactory=lambda: Time())
+
 
 class StructuredDefaultTestCase(TestCase):
     def testTimestampDefault(self):
         s = Store()
         sid = DatedThing(store=s).storeID
         self.assertEqual(s.getItemByID(sid).date,
-                          someRandomDate)
+                         someRandomDate)
 
     def testTimestampNow(self):
         s = Store()
         sid = CreationDatedThing(store=s).storeID
         self.assertTrue(
-            (Time().asDatetime() - s.getItemByID(sid).creationDate.asDatetime()).seconds <
+            (Time().asDatetime() - s.getItemByID(
+                sid).creationDate.asDatetime()).seconds <
             10)
-
 
 
 class TaggedListyThing(Item):
     strlist = textlist()
-
 
 
 class StringListTestCase(TestCase):
@@ -292,7 +301,6 @@ class StringListTestCase(TestCase):
         tlt = s.findUnique(TaggedListyThing)
         self.assertEqual(tlt.strlist, value)
 
-
     def test_simpleListOfStrings(self):
         """
         Test that a simple list can be stored and retrieved successfully.
@@ -300,13 +308,11 @@ class StringListTestCase(TestCase):
         SOME_VALUE = ['abc', 'def, ghi', 'jkl']
         self.tryRoundtrip(SOME_VALUE)
 
-
     def test_emptyList(self):
         """
         Test that an empty list can be stored and retrieved successfully.
         """
         self.tryRoundtrip([])
-
 
     def test_oldRepresentation(self):
         """
@@ -319,11 +325,11 @@ class StringListTestCase(TestCase):
             ('', ['']),
             ('\x1f', ['', '']),
             ('foo\x1fbar', ['foo', 'bar']),
-            ]
+        ]
 
         for dbval, pyval in oldCases:
-            self.assertEqual(TaggedListyThing.strlist.outfilter(dbval, None), pyval)
-
+            self.assertEqual(TaggedListyThing.strlist.outfilter(dbval, None),
+                             pyval)
 
 
 class SQLAttributeDummyClass(Item):
@@ -332,7 +338,6 @@ class SQLAttributeDummyClass(Item):
     behaviors.
     """
     dummyAttribute = SQLAttribute()
-
 
 
 class FullImplementationDummyClass(Item):
@@ -357,7 +362,6 @@ class SQLAttributeTestCase(TestCase):
             SQLAttributeDummyClass.dummyAttribute.attrname,
             'dummyAttribute')
 
-
     def test_fullyQualifiedName(self):
         """
         Test that the L{SQLAttribute.fullyQualifiedName} method correctly
@@ -369,7 +373,6 @@ class SQLAttributeTestCase(TestCase):
             SQLAttributeDummyClass.dummyAttribute.fullyQualifiedName(),
             'axiom.test.test_attributes.SQLAttributeDummyClass.dummyAttribute')
 
-
     def test_fullyQualifiedStoreID(self):
         """
         Test that the L{IColumn} implementation on the storeID emits the
@@ -380,7 +383,6 @@ class SQLAttributeTestCase(TestCase):
         self.assertEqual(
             SQLAttributeDummyClass.storeID.fullyQualifiedName(),
             'axiom.test.test_attributes.SQLAttributeDummyClass.storeID')
-
 
     def test_fullyQualifiedPlaceholder(self):
         """
@@ -394,7 +396,6 @@ class SQLAttributeTestCase(TestCase):
             '.dummyAttribute.<placeholder:%d>' % (ph._placeholderCount,),
             ph.dummyAttribute.fullyQualifiedName())
 
-
     def test_accessor(self):
         """
         Test that the __get__ of SQLAttribute does the obvious thing, and returns
@@ -404,7 +405,6 @@ class SQLAttributeTestCase(TestCase):
         self.assertEqual(
             FullImplementationDummyClass.dummyAttribute.__get__(dummy), 1234)
         self.assertEqual(dummy.dummyAttribute, 1234)
-
 
     def test_storeIDAccessor(self):
         """
@@ -426,7 +426,6 @@ class SQLAttributeTestCase(TestCase):
                         ).dummyAttribute.__get__(dummy), 1234)
         self.assertEqual(dummy.dummyAttribute, 1234)
 
-
     def test_typeAttribute(self):
         """
         Test that the C{type} attribute of an L{SQLAttribute} references the
@@ -435,7 +434,6 @@ class SQLAttributeTestCase(TestCase):
         self.assertIdentical(
             SQLAttributeDummyClass,
             SQLAttributeDummyClass.dummyAttribute.type)
-
 
     def test_getShortColumnName(self):
         """
@@ -449,7 +447,6 @@ class SQLAttributeTestCase(TestCase):
         self.assertIn(
             'dummyAttribute',
             s.getShortColumnName(SQLAttributeDummyClass.dummyAttribute))
-
 
     def test_getColumnName(self):
         """
@@ -465,7 +462,6 @@ class SQLAttributeTestCase(TestCase):
             s.getColumnName(SQLAttributeDummyClass.dummyAttribute))
 
 
-
 class KitchenSink(Item):
     """
     An item with one of everything, more or less.
@@ -479,11 +475,11 @@ class KitchenSink(Item):
     m = money()
 
 
-
 class GeneratedDataTests(TestCase):
     """
     Tests for storing data generated by Hypothesis.
     """
+
     @given(st.builds(Store), axiomText() | st.none())
     def test_textRoundtrip(self, store, value):
         """
@@ -496,7 +492,6 @@ class GeneratedDataTests(TestCase):
             store.findUnique(KitchenSink, KitchenSink.t == value).storeID,
             sid)
 
-
     @given(st.builds(Store), axiomIntegers() | st.none())
     def test_integerRoundtrip(self, store, value):
         """
@@ -508,7 +503,6 @@ class GeneratedDataTests(TestCase):
         self.assertEqual(
             store.findUnique(KitchenSink, KitchenSink.i == value).storeID,
             sid)
-
 
     @given(st.builds(Store), timestamps() | st.none())
     def test_timestampRoundtrip(self, store, value):
@@ -526,7 +520,6 @@ class GeneratedDataTests(TestCase):
             store.findUnique(KitchenSink, KitchenSink.ts == value).storeID,
             sid)
 
-
     @given(st.builds(Store), textlists() | st.none())
     def test_textlistRoundtrip(self, store, value):
         """
@@ -538,7 +531,6 @@ class GeneratedDataTests(TestCase):
         self.assertEqual(
             store.findUnique(KitchenSink, KitchenSink.tl == value).storeID,
             sid)
-
 
     @given(st.builds(Store), st.floats(allow_nan=False) | st.none())
     def test_floatRoundtrip(self, store, value):
@@ -552,7 +544,6 @@ class GeneratedDataTests(TestCase):
             store.findUnique(KitchenSink, KitchenSink.d == value).storeID,
             sid)
 
-
     @given(st.builds(Store), fixedDecimals(Decimal('0.1')) | st.none())
     def test_point1decimalRoundtrip(self, store, value):
         """
@@ -564,7 +555,6 @@ class GeneratedDataTests(TestCase):
         self.assertEqual(
             store.findUnique(KitchenSink, KitchenSink.p1d == value).storeID,
             sid)
-
 
     @given(st.builds(Store), fixedDecimals(Decimal('0.0001')) | st.none())
     def test_money(self, store, value):

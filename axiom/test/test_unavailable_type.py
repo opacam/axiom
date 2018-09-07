@@ -1,5 +1,7 @@
-from twisted.trial.unittest import TestCase
 import importlib
+
+from twisted.trial.unittest import TestCase
+
 
 class UnavailableTypeTestCase(TestCase):
     def testUnavailable(self):
@@ -7,7 +9,6 @@ class UnavailableTypeTestCase(TestCase):
 
         def makeItem():
             class MyItem(item.Item):
-
                 typeName = 'test_deadtype_myitem'
                 schemaVersion = 1
 

@@ -5,19 +5,23 @@
 Tests for Axiom store version history.
 """
 
-import sys, io
-from twisted.trial import unittest
+import io
+import sys
+
 from twisted.python.versions import Version
+from twisted.trial import unittest
 
-from axiom.store import Store
 from axiom import version as axiom_version
-from axiom.listversions import (getSystemVersions,
-                                SystemVersion,
-                                checkSystemVersion)
-
-from axiom.scripts.axiomatic import Options as AxiomaticOptions
-from axiom.test.util import CommandStubMixin
+from axiom.listversions import (
+    getSystemVersions,
+    SystemVersion,
+    checkSystemVersion)
 from axiom.plugins.axiom_plugins import ListVersions
+from axiom.scripts.axiomatic import \
+    Options as AxiomaticOptions
+from axiom.store import Store
+from axiom.test.util import CommandStubMixin
+
 
 class SystemVersionTests(unittest.TestCase, CommandStubMixin):
     """
@@ -32,7 +36,6 @@ class SystemVersionTests(unittest.TestCase, CommandStubMixin):
         self.dbdir = self.mktemp()
         self.store = Store(self.dbdir)
 
-
     def _reopenStore(self):
         """
         Close the store and reopen it.
@@ -40,15 +43,16 @@ class SystemVersionTests(unittest.TestCase, CommandStubMixin):
         self.store.close()
         self.store = Store(self.dbdir)
 
-
     def test_getSystemVersions(self):
         """
         L{getSystemVersions} returns all the version plugins it finds.
         """
         someVersions = [Version("foo", 1, 2, 3),
                         Version("baz", 0, 0, 1)]
+
         def getSomeVersions(iface, package):
             return someVersions
+
         self.assertEqual(getSystemVersions(getSomeVersions),
                          someVersions)
 
@@ -90,7 +94,6 @@ class SystemVersionTests(unittest.TestCase, CommandStubMixin):
         query_results = list(self.store.query(SystemVersion))
         self.assertEqual(len(query_results), 3)
 
-
     def test_commandLine(self):
         """
         L{ListVersions} will list versions of code used in this store when
@@ -105,7 +108,6 @@ class SystemVersionTests(unittest.TestCase, CommandStubMixin):
         lv.parseOptions([])
         result = out.getvalue()
         self.assertSubstring("axiom: " + axiom_version.short(), result)
-
 
     def test_axiomaticSubcommand(self):
         """

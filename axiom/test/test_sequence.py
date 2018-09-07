@@ -1,10 +1,21 @@
-
 from twisted.trial import unittest
+
 from axiom.attributes import integer
 from axiom.errors import NoCrossStoreReferences
 from axiom.item import Item
 from axiom.sequence import List
 from axiom.store import Store
+
+
+def cmp(x, y):
+    """
+    Replacement for built-in function cmp that was removed in Python 3
+
+    Compare the two objects x and y and return an integer according to
+    the outcome. The return value is negative if x < y, zero if x == y
+    and strictly positive if x > y.
+    """
+    return (x > y) - (x < y)
 
 
 class SomeItem(Item):
@@ -20,18 +31,20 @@ class SomeItem(Item):
             return cmp(super(SomeItem, self), other)
         return cmp(self.foo, other.foo)
 
+
 class SequenceTestCase(unittest.TestCase):
     def setUp(self):
         self.store = Store()
         self.xy = SomeItem(store=self.store, foo=-1)
         for i in range(10):
             item = SomeItem(store=self.store, foo=i)
-            setattr(self, 'i%i'%i, item)
+            setattr(self, 'i%i' % i, item)
 
     def assertContents(self, seq, L):
         self.assertEqual(len(seq), len(L))
         for i in range(len(L)):
             self.assertIdentical(seq[i], L[i])
+
 
 class TestSequenceOfItems(SequenceTestCase):
     def test_createItem(self):
@@ -71,6 +84,7 @@ class TestSequenceOfItems(SequenceTestCase):
         self.assertContents(seq, [self.i0,
                                   self.i1,
                                   self.i2])
+
     test_appendSliceSyntax.todo = "Slices are not supported yet"
 
     def test_indexErrors(self):
@@ -148,7 +162,7 @@ class TestSequenceOperations(SequenceTestCase):
         seq = List(store=self.store)
         seq.append(self.i0)
         for L in (seq * n, n * seq):
-            self.assertEqual(L, [self.i0]*n)
+            self.assertEqual(L, [self.i0] * n)
 
     def test_index(self):
         seq = List(store=self.store)
@@ -169,6 +183,7 @@ class TestSequenceOperations(SequenceTestCase):
         self.assertEqual(seq[0:3], [self.i0, self.i1, self.i2])
         self.assertEqual(seq[1:0], [])
         self.assertEqual(seq[-1:], [self.i3])
+
     test_slices.todo = "Slices are not supported yet"
 
     def test_slice_with_step(self):
@@ -179,6 +194,7 @@ class TestSequenceOperations(SequenceTestCase):
         seq.append(self.i3)
         self.assertEqual(seq[0:4:2], [self.i0, self.i2])
         self.assertEqual(seq[1:5:2], [self.i1, self.i3])
+
     test_slice_with_step.todo = "Slices are not supported yet"
 
     def test_len(self):
@@ -236,6 +252,7 @@ class TestMutableSequenceOperations(SequenceTestCase):
                                   self.i0])
         seq[1:3] = []
         self.assertContents(seq, [self.i0])
+
     test_sliceAssignment.todo = "Slices are not supported yet"
 
     def test_deleteSlice(self):
@@ -248,6 +265,7 @@ class TestMutableSequenceOperations(SequenceTestCase):
         self.assertEqual(len(seq), 2)
         self.assertIdentical(seq[0], self.i0)
         self.assertIdentical(seq[1], self.i3)
+
     test_deleteSlice.todo = "Slices are not supported yet"
 
     def test_sliceAssignmentStep(self):
@@ -267,6 +285,7 @@ class TestMutableSequenceOperations(SequenceTestCase):
                                   self.i4,
                                   self.i5,
                                   self.i6])
+
     test_sliceAssignmentStep.todo = "Slices are not supported yet"
 
     def test_deleteSliceStep(self):
@@ -283,6 +302,7 @@ class TestMutableSequenceOperations(SequenceTestCase):
                                   self.i2,
                                   self.i4,
                                   self.i6])
+
     test_deleteSliceStep.todo = "Slices are not supported yet"
 
     def test_append(self):
@@ -319,6 +339,7 @@ class TestMutableSequenceOperations(SequenceTestCase):
                                  self.i1,
                                  self.i2,
                                  self.i3])
+
     test_extendSliceSyntax.todo = "Slices are not supported yet"
 
     def test_count(self):
@@ -371,6 +392,7 @@ class TestMutableSequenceOperations(SequenceTestCase):
         self.assertContents(seq, [self.i0,
                                   self.i9,
                                   self.i0])
+
     test_insertSliceSyntax.todo = "Slices are not supported yet"
 
     def test_pop(self):
@@ -481,8 +503,10 @@ class TestMutableSequenceOperations(SequenceTestCase):
 
     Changed in version 2.4: Support for key and reverse was added.
     '''
+
     def test_sort(self):
         seq = List(store=self.store)
+
         def seq_randomize():
             while len(seq):
                 seq.pop()
@@ -501,7 +525,7 @@ class TestMutableSequenceOperations(SequenceTestCase):
                                   self.i4])
 
         seq_randomize()
-        seq.sort(lambda x,y: cmp(y,x))
+        seq.sort(lambda x, y: cmp(y, x))
         self.assertContents(seq, [self.i4,
                                   self.i3,
                                   self.i2,
@@ -515,6 +539,7 @@ class TestMutableSequenceOperations(SequenceTestCase):
             if yfoo < 3:
                 yfoo += 100
             return cmp(xfoo, yfoo)
+
         seq_randomize()
         seq.sort(strangecmp)
         self.assertContents(seq, [self.i3,
@@ -524,14 +549,14 @@ class TestMutableSequenceOperations(SequenceTestCase):
                                   self.i2])
 
         seq_randomize()
-        seq.sort(None, lambda x:x, True)
+        seq.sort(None, lambda x: x, True)
         self.assertContents(seq, [self.i4,
                                   self.i3,
                                   self.i2,
                                   self.i1,
                                   self.i0])
         seq_randomize()
-        seq.sort(strangecmp, lambda x:x, True)
+        seq.sort(strangecmp, lambda x: x, True)
         self.assertContents(seq, [self.i2,
                                   self.i1,
                                   self.i0,

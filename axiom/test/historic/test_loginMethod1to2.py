@@ -1,15 +1,13 @@
-
-from twisted.cred.portal import Portal, IRealm
-
 from twisted.cred.checkers import ICredentialsChecker
 from twisted.cred.credentials import UsernamePassword
-
-from axiom.test.test_userbase import IGarbage
+from twisted.cred.portal import Portal, IRealm
 
 from axiom.test.historic import stubloader
+from axiom.test.test_userbase import IGarbage
 
 CREDENTIALS = ('test', 'example.com', 'secret')
 GARBAGE_LEVEL = 26
+
 
 class LoginMethodUpgradeTest(stubloader.StubbedTest):
     def testUpgrade(self):

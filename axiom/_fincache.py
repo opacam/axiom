@@ -1,15 +1,15 @@
-from weakref import ref
 from traceback import print_exc
+from weakref import ref
 
 from twisted.python import log
 
 from axiom import iaxiom
 
+
 class CacheFault(KeyError):
     """
     An item has fallen out of cache, but the weakref callback has not yet run.
     """
-
 
 
 class CacheInconsistency(RuntimeError):
@@ -18,22 +18,20 @@ class CacheInconsistency(RuntimeError):
     """
 
 
-
 def logErrorNoMatterWhat():
     try:
         log.msg("Exception in finalizer cannot be propagated")
         log.err()
-    except:
+    except Exception as e:
         try:
-            emergLog = file("WEAKREF_EMERGENCY_ERROR.log", 'a')
+            emergLog = open("WEAKREF_EMERGENCY_ERROR.log", 'a')
             print_exc(file=emergLog)
             emergLog.flush()
             emergLog.close()
-        except:
+        except Exception as e:
             # Nothing can be done.  We can't get an emergency log file to write
             # to.  Don't bother.
             return
-
 
 
 def createCacheRemoveCallback(cacheRef, key, finalizer):
@@ -54,11 +52,12 @@ def createCacheRemoveCallback(cacheRef, key, finalizer):
     @param finalizer: A user-provided callable that will be called when the
         weakref callback runs.
     """
+
     def remove(reference):
         # Weakref callbacks cannot raise exceptions or DOOM ensues
         try:
             finalizer()
-        except:
+        except Exception:
             logErrorNoMatterWhat()
         try:
             cache = cacheRef()
@@ -66,10 +65,10 @@ def createCacheRemoveCallback(cacheRef, key, finalizer):
                 if key in cache.data:
                     if cache.data[key] is reference:
                         del cache.data[key]
-        except:
+        except Exception:
             logErrorNoMatterWhat()
-    return remove
 
+    return remove
 
 
 class FinalizingCache:
@@ -81,10 +80,10 @@ class FinalizingCache:
     @type data: L{dict}
     @ivar data: The cached values.
     """
+
     def __init__(self, _ref=ref):
         self.data = {}
         self._ref = _ref
-
 
     def cache(self, key, value):
         """
@@ -113,7 +112,6 @@ class FinalizingCache:
         self.data[key] = self._ref(value, callback)
         return value
 
-
     def uncache(self, key, value):
         """
         Remove a key from the cache.
@@ -135,7 +133,6 @@ class FinalizingCache:
             # CacheFault (a KeyError subclass) which we also ignore. See the
             # comment in get() for an explanation of why this might happen.
             pass
-
 
     def get(self, key):
         """
@@ -161,4 +158,3 @@ class FinalizingCache:
                 "FinalizingCache has %r but its value is no more." % (key,))
         log.msg(interface=iaxiom.IStatEvent, stat_cache_hits=1, key=key)
         return o
-

@@ -3,27 +3,27 @@
 __metaclass__ = type
 
 import gc
-from zope.interface import implements, implementer, Interface
-
 from inspect import getabsfile
 from weakref import WeakValueDictionary
 
+from twisted.application.service import (
+    IService, IServiceCollection, MultiService)
 from twisted.python import log
 from twisted.python.reflect import qual, namedAny
 from twisted.python.util import mergeFunctionMetadata
-from twisted.application.service import (
-    IService, IServiceCollection, MultiService)
+from zope.interface import implementer, Interface
 
 from axiom import slotmachine, _schema, iaxiom
-from axiom.errors import ChangeRejected, DeletionDisallowed
-from axiom.iaxiom import IColumn, IPowerupIndirector
-
 from axiom.attributes import (
     SQLAttribute, _ComparisonOperatorMuxer, _MatchingOperationMuxer,
     _OrderingMixin, _ContainableMixin, Comparable, compare, inmemory,
     reference, text, integer, AND, _cascadingDeletes, _disallows)
+from axiom.errors import ChangeRejected, \
+    DeletionDisallowed
+from axiom.iaxiom import IColumn, IPowerupIndirector
 
 _typeNameToMostRecentClass = WeakValueDictionary()
+
 
 def normalize(qualName):
     """
@@ -32,18 +32,22 @@ def normalize(qualName):
     """
     return qualName.lower().replace('.', '_')
 
+
 class NoInheritance(RuntimeError):
     """
     Inheritance is as-yet unsupported by XAtop.
     """
 
+
 class NotInStore(RuntimeError):
     """
     """
 
+
 class CantInstantiateItem(RuntimeError):
     """You can't instantiate Item directly.  Make a subclass.
     """
+
 
 class MetaItem(slotmachine.SchemaMetaMachine):
     """Simple metaclass for Item that adds Item (and its subclasses) to
@@ -51,7 +55,8 @@ class MetaItem(slotmachine.SchemaMetaMachine):
     """
 
     def __new__(meta, name, bases, dictionary):
-        T = slotmachine.SchemaMetaMachine.__new__(meta, name, bases, dictionary)
+        T = slotmachine.SchemaMetaMachine.__new__(meta, name, bases,
+                                                  dictionary)
         if T.__name__ == 'Item' and T.__module__ == __name__:
             return T
         T.__already_inherited__ += 1
@@ -70,9 +75,9 @@ class MetaItem(slotmachine.SchemaMetaMachine):
                 return T
             otherT = _typeNameToMostRecentClass[T.typeName]
 
-            if (otherT.__name__ == T.__name__
-                    and getabsfile(T) == getabsfile(otherT)
-                    and T.__module__ != otherT.__module__):
+            if (otherT.__name__ == T.__name__ and
+                    getabsfile(T) == getabsfile(otherT) and
+                    T.__module__ != otherT.__module__):
 
                 if len(T.__module__) < len(otherT.__module__):
                     relmod = T.__module__
@@ -85,31 +90,48 @@ class MetaItem(slotmachine.SchemaMetaMachine):
                         T.typeName, relmod))
 
             raise RuntimeError("2 definitions of axiom typename %r: %r %r" % (
-                    T.typeName, T, _typeNameToMostRecentClass[T.typeName]))
+                T.typeName, T, _typeNameToMostRecentClass[T.typeName]))
         _typeNameToMostRecentClass[T.typeName] = T
         return T
 
+    def __eq__(self, other):
+        return ((self.typeName, self.schemaVersion) ==
+                (other.typeName, other.schemaVersion))
 
-    def __cmp__(self, other):
-        """
-        Ensure stable sorting between Item classes.  This provides determinism
-        in SQL generation, which is beneficial for debugging and performance
-        purposes.
-        """
-        if isinstance(other, MetaItem):
-            return cmp((self.typeName, self.schemaVersion),
-                       (other.typeName, other.schemaVersion))
-        return NotImplemented
+    def __ne__(self, other):
+        return ((self.typeName, self.schemaVersion) !=
+                (other.typeName, other.schemaVersion))
+
+    def __lt__(self, other):
+        return ((self.typeName, self.schemaVersion) <
+                (other.typeName, other.schemaVersion))
+
+    def __le__(self, other):
+        return ((self.typeName, self.schemaVersion) <=
+                (other.typeName, other.schemaVersion))
+
+    def __gt__(self, other):
+        return ((self.typeName, self.schemaVersion) >
+                (other.typeName, other.schemaVersion))
+
+    def __ge__(self, other):
+        return ((self.typeName, self.schemaVersion) >=
+                (other.typeName, other.schemaVersion))
+
+    def __hash__(self):
+        return hash((self.typeName, self.schemaVersion))
 
 
 def noop():
     pass
 
+
+@implementer(IColumn)
 class _StoreIDComparer(Comparable):
     """
-    See Comparable's docstring for the explanation of the requirements of my implementation.
+    See Comparable's docstring for the explanation
+    of the requirements of my implementation.
     """
-    implements(IColumn)
 
     def __init__(self, type):
         self.type = type
@@ -117,13 +139,16 @@ class _StoreIDComparer(Comparable):
     def __repr__(self):
         return '<storeID ' + qual(self.type) + '.storeID>'
 
+    def __hash__(self):
+        return hash(self.fullyQualifiedName())
+
     def fullyQualifiedName(self):
         # XXX: this is an example of silly redundancy, this really ought to be
         # refactored to work like any other attribute (including being
         # explicitly covered in the schema, which has other good qualities like
         # allowing tables to be VACUUM'd without destroying oid stability and
         # every storeID reference ever. --glyph
-        return qual(self.type)+'.storeID'
+        return qual(self.type) + '.storeID'
 
     # attributes required by ColumnComparer
     def infilter(self, pyval, oself, store):
@@ -155,6 +180,7 @@ class _SpecialStoreIDAttribute(slotmachine.SetOnce):
     I implement set-once semantics to enforce immutability, but delegate
     comparison operations to _StoreIDComparer.
     """
+
     def __get__(self, oself, type=None):
         if type is not None and oself is None:
             if type._storeIDComparer is None:
@@ -173,8 +199,6 @@ def serviceSpecialCase(item, pups):
         subsvc.setServiceParent(svc)
     item._axiom_service = svc
     return svc
-
-
 
 
 class Empowered(object):
@@ -208,7 +232,6 @@ class Empowered(object):
         @param interface: a zope interface
         """
         self._inMemoryPowerups[interface] = powerup
-
 
     def powerUp(self, powerup, interface=None, priority=0):
         """
@@ -269,7 +292,6 @@ class Empowered(object):
                                            powerup=powerup)
             forc.priority = priority
 
-
     def powerDown(self, powerup, interface=None):
         """
         Remove a powerup.
@@ -293,15 +315,15 @@ class Empowered(object):
             for interface, priority in powerup._getPowerupInterfaces():
                 self.powerDown(powerup, interface)
         else:
-            for cable in self.store.query(_PowerupConnector,
-                                          AND(_PowerupConnector.item == self,
-                                              _PowerupConnector.interface == str(qual(interface)),
-                                              _PowerupConnector.powerup == powerup)):
+            for cable in self.store.query(
+                    _PowerupConnector,
+                    AND(_PowerupConnector.item == self,
+                        _PowerupConnector.interface == qual(interface),
+                        _PowerupConnector.powerup == powerup)):
                 cable.deleteFromStore()
                 return
             raise ValueError("Not powered up for %r with %r" % (interface,
                                                                 powerup))
-
 
     def __conform__(self, interface):
         """
@@ -326,7 +348,6 @@ class Empowered(object):
         for pup in pups:
             return pup  # return first one, or None if no powerups
 
-
     def powerupsFor(self, interface):
         """
         Returns powerups installed using C{powerUp}, in order of descending
@@ -341,12 +362,12 @@ class Empowered(object):
             yield inMemoryPowerup
         if self.store is None:
             return
-        name = str(qual(interface), 'ascii')
+        name = qual(interface)
         for cable in self.store.query(
-            _PowerupConnector,
-            AND(_PowerupConnector.interface == name,
-                _PowerupConnector.item == self),
-            sort=_PowerupConnector.priority.descending):
+                _PowerupConnector,
+                AND(_PowerupConnector.interface == name,
+                    _PowerupConnector.item == self),
+                sort=_PowerupConnector.priority.descending):
             pup = cable.powerup
             if pup is None:
                 # this powerup was probably deleted during an upgrader.
@@ -367,11 +388,11 @@ class Empowered(object):
         in an unpredictable, implementation-dependent way if used on one.
         """
         pc = _PowerupConnector
-        for iface in self.store.query(pc,
-                                      AND(pc.item == self,
-                                          pc.powerup == powerup)).getColumn('interface'):
+        for iface in self.store.query(
+                pc,
+                AND(pc.item == self,
+                    pc.powerup == powerup)).getColumn('interface'):
             yield namedAny(iface)
-
 
     def _getPowerupInterfaces(self):
         """
@@ -382,10 +403,10 @@ class Empowered(object):
         pifs = []
         for x in powerupInterfaces:
             if isinstance(x, type(Interface)):
-                #just an interface
+                # just an interface
                 pifs.append((x, 0))
             else:
-                #an interface and a priority
+                # an interface and a priority
                 pifs.append(x)
 
         m = getattr(self, "__getPowerupInterfaces__", None)
@@ -394,10 +415,10 @@ class Empowered(object):
             try:
                 pifs = [(i, p) for (i, p) in pifs]
             except ValueError:
-                raise ValueError("return value from %r.__getPowerupInterfaces__"
-                                 " not an iterable of 2-tuples" % (self,))
+                raise ValueError(
+                    "return value from %r.__getPowerupInterfaces__"
+                    " not an iterable of 2-tuples" % (self,))
         return pifs
-
 
 
 def transacted(func):
@@ -409,11 +430,11 @@ def transacted(func):
     The attributes of the returned callable will resemble those of C{func} as
     closely as L{twisted.python.util.mergeFunctionMetadata} can make them.
     """
+
     def transactionified(item, *a, **kw):
         return item.store.transact(func, item, *a, **kw)
+
     return mergeFunctionMetadata(func, transactionified)
-
-
 
 
 def dependentItems(store, tableClass, comparisonFactory):
@@ -434,7 +455,6 @@ def dependentItems(store, tableClass, comparisonFactory):
         for cascadedItem in store.query(cascadingAttr.type,
                                         comparisonFactory(cascadingAttr)):
             yield cascadedItem
-
 
 
 def allowDeletion(store, tableClass, comparisonFactory):
@@ -460,7 +480,6 @@ def allowDeletion(store, tableClass, comparisonFactory):
     return True
 
 
-
 class Item(Empowered, slotmachine._Strict, metaclass=MetaItem):
     # Python-Special Attributes
     __dirty__ = inmemory()
@@ -469,23 +488,23 @@ class Item(Empowered, slotmachine._Strict, metaclass=MetaItem):
     __already_inherited__ = 0
 
     # Private attributes.
-    __store = inmemory()        # underlying reference to the store.
+    __store = inmemory()  # underlying reference to the store.
 
-    __everInserted = inmemory() # has this object ever been inserted into the
-                                # database?
+    __everInserted = inmemory()  # has this object ever been inserted into the
+    # database?
 
     __justCreated = inmemory()  # was this object just created, i.e. is there
-                                # no committed database representation of it
-                                # yet
+    # no committed database representation of it
+    # yet
 
-    __deleting = inmemory()     # has this been marked for deletion at
-                                # checkpoint
+    __deleting = inmemory()  # has this been marked for deletion at
+    # checkpoint
 
-    __deletingObject = inmemory() # being marked for deletion at checkpoint,
-                                  # are we also deleting the central object row
-                                  # (True: as in an actual delete) or are we
-                                  # simply deleting the data row (False: as in
-                                  # part of an upgrade)
+    __deletingObject = inmemory()  # being marked for deletion at checkpoint,
+    # are we also deleting the central object row
+    # (True: as in an actual delete) or are we
+    # simply deleting the data row (False: as in
+    # part of an upgrade)
 
     storeID = _SpecialStoreIDAttribute(default=None)
     _storeIDComparer = None
@@ -510,7 +529,6 @@ class Item(Empowered, slotmachine._Strict, metaclass=MetaItem):
             return False
         return True
 
-
     def _schemaPrepareInsert(self, store):
         """
         Prepare each attribute in my schema for insertion into a given store,
@@ -521,10 +539,10 @@ class Item(Empowered, slotmachine._Strict, metaclass=MetaItem):
         for name, atr in self.getSchema():
             atr.prepareInsert(self, store)
 
-
     def store():
         def get(self):
             return self.__store
+
         def set(self, store):
             if self.__store is not None:
                 raise AttributeError(
@@ -548,17 +566,17 @@ class Item(Empowered, slotmachine._Strict, metaclass=MetaItem):
                 self.touch()
             self.activate()
             self.stored()
+
         return get, set, """
 
-        A reference to a Store; when set for the first time, inserts this object
-        into that store.  Cannot be set twice; once inserted, objects are
+        A reference to a Store; when set for the first time, inserts this
+        object into that store. Cannot be set twice; once inserted, objects are
         'stuck' to a particular store and must be copied by creating a new
         Item.
 
         """
 
     store = property(*store())
-
 
     def __repr__(self):
         """
@@ -567,9 +585,8 @@ class Item(Empowered, slotmachine._Strict, metaclass=MetaItem):
         """
         attrs = ", ".join("{n}={v}".format(n=name, v=attr.reprFor(self))
                           for name, attr in sorted(self.getSchema()))
-        template = b"{s.__name__}({attrs}, storeID={s.storeID})@{id:#x}"
+        template = "{s.__name__}({attrs}, storeID={s.storeID})@{id:#x}"
         return template.format(s=self, attrs=attrs, id=id(self))
-
 
     def __subinit__(self, **kw):
         """
@@ -586,7 +603,7 @@ class Item(Empowered, slotmachine._Strict, metaclass=MetaItem):
         self.__everInserted = to__everInserted
         self.__deletingObject = False
         self.__deleting = False
-        tostore = kw.pop('store',None)
+        tostore = kw.pop('store', None)
 
         if not self.__everInserted:
             for (name, attr) in self.getSchema():
@@ -596,7 +613,7 @@ class Item(Empowered, slotmachine._Strict, metaclass=MetaItem):
         for k, v in kw.items():
             setattr(self, k, v)
 
-        if tostore != None:
+        if tostore is not None:
             if to__justUpgraded:
 
                 # we can't just set the store, because that allocates an ID.
@@ -617,12 +634,11 @@ class Item(Empowered, slotmachine._Strict, metaclass=MetaItem):
             else:
                 self.store = tostore
 
-
     def __init__(self, **kw):
         """
-        Create a new Item.  This is called on an item *only* when it is being created
-        for the first time, not when it is loaded from the database.  The
-        'activate()' hook is called every time an item is loaded from the
+        Create a new Item.  This is called on an item *only* when it is being
+        created for the first time, not when it is loaded from the database.
+        The 'activate()' hook is called every time an item is loaded from the
         database, as well as the first time that an item is inserted into the
         store.  This will be inside __init__ if you pass a 'store' keyword
         argument to an Item's constructor.
@@ -636,10 +652,8 @@ class Item(Empowered, slotmachine._Strict, metaclass=MetaItem):
         self.__justCreated = True
         self.__subinit__(**kw)
 
-
     def __finalizer__(self):
         return noop
-
 
     def existingInStore(cls, store, storeID, attrs):
         """Create and return a new instance from a row from the store."""
@@ -656,6 +670,7 @@ class Item(Empowered, slotmachine._Strict, metaclass=MetaItem):
             attr.loaded(self, data)
         self.activate()
         return self
+
     existingInStore = classmethod(existingInStore)
 
     def activate(self):
@@ -673,8 +688,8 @@ class Item(Empowered, slotmachine._Strict, metaclass=MetaItem):
                 schema.append((name, atr))
         cls.getSchema = staticmethod(lambda schema=schema: schema)
         return schema
-    getSchema = classmethod(getSchema)
 
+    getSchema = classmethod(getSchema)
 
     def persistentValues(self):
         """
@@ -682,7 +697,6 @@ class Item(Empowered, slotmachine._Strict, metaclass=MetaItem):
         stored in the database.
         """
         return dict((k, getattr(self, k)) for (k, attr) in self.getSchema())
-
 
     def touch(self):
         # xxx what
@@ -707,13 +721,11 @@ class Item(Empowered, slotmachine._Strict, metaclass=MetaItem):
         self.__deleting = False
         self.__deletingObject = False
 
-
     def deleted(self):
-        """User-definable callback that is invoked when an object is well and truly
-        gone from the database; the transaction which deleted it has been
+        """User-definable callback that is invoked when an object is well and
+        truly gone from the database; the transaction which deleted it has been
         committed.
         """
-
 
     def stored(self):
         """
@@ -723,7 +735,6 @@ class Item(Empowered, slotmachine._Strict, metaclass=MetaItem):
         If an Item is created with a store, this will be invoked I{after}
         C{activate}.
         """
-
 
     def committed(self):
         """
@@ -737,7 +748,6 @@ class Item(Empowered, slotmachine._Strict, metaclass=MetaItem):
                 self.__store = None
         self.__justCreated = False
 
-
     def checkpoint(self):
         """
         Update the database to reflect in-memory changes made to this item; for
@@ -750,15 +760,16 @@ class Item(Empowered, slotmachine._Strict, metaclass=MetaItem):
         """
 
         if self.store is None:
-            raise NotInStore("You can't checkpoint %r: not in a store" % (self,))
-
+            raise NotInStore(
+                "You can't checkpoint %r: not in a store" % (self,))
 
         if self.__deleting:
             if not self.__everInserted:
                 # don't issue duplicate SQL and crap; we were created, then
                 # destroyed immediately.
                 return
-            self.store.executeSQL(self._baseDeleteSQL(self.store), [self.storeID])
+            self.store.executeSQL(self._baseDeleteSQL(self.store),
+                                  [self.storeID])
             # re-using OIDs plays havoc with the cache, and with other things
             # as well.  We need to make sure that we leave a placeholder row at
             # the end of the table.
@@ -768,7 +779,8 @@ class Item(Empowered, slotmachine._Strict, metaclass=MetaItem):
                                             [-1, self.storeID])
 
                 # Can't do this any more:
-                # self.store.executeSchemaSQL(_schema.DELETE_OBJECT, [self.storeID])
+                # self.store.executeSchemaSQL(
+                #     _schema.DELETE_OBJECT, [self.storeID])
 
                 # TODO: need to measure the performance impact of this, then do
                 # it to make sure things are in fact deleted:
@@ -797,7 +809,8 @@ class Item(Empowered, slotmachine._Strict, metaclass=MetaItem):
 
             insertArgs = [self.storeID]
             for (ignoredName, attrObj) in schemaAttrs:
-                attrObjDuplicate, attributeValue = self.__dirty__[attrObj.attrname]
+                attrObjDuplicate, attributeValue = self.__dirty__[
+                    attrObj.attrname]
                 # assert attrObjDuplicate is attrObj
                 insertArgs.append(attributeValue)
 
@@ -817,7 +830,8 @@ class Item(Empowered, slotmachine._Strict, metaclass=MetaItem):
         # right now there is only ever one acceptable series of arguments here
         # but it is useful to pass them anyway to make sure the code is
         # functioning as expected
-        assert typename == self.typeName, '%r != %r' % (typename, self.typeName)
+        assert typename == self.typeName, '%r != %r' % (
+            typename, self.typeName)
         assert oldversion == self.schemaVersion
         key = typename, newversion
         T = None
@@ -829,9 +843,10 @@ class Item(Empowered, slotmachine._Strict, metaclass=MetaItem):
                 T = mostRecent
         if T is None:
             raise RuntimeError("don't know about type/version pair %s:%d" % (
-                    typename, newversion))
-        newTypeID = self.store.getTypeID(T) # call first to make sure the table
-                                            # exists for doInsert below
+                typename, newversion))
+        newTypeID = self.store.getTypeID(
+            T)  # call first to make sure the table
+        # exists for doInsert below
 
         new = T(store=self.store,
                 __justUpgraded=True,
@@ -867,19 +882,18 @@ class Item(Empowered, slotmachine._Strict, metaclass=MetaItem):
         if self.store.autocommit:
             self.checkpoint()
 
-
     # You may specify schemaVersion and typeName in subclasses
     schemaVersion = None
     typeName = None
 
-    ###### SQL generation ######
-
+    # SQL generation
     def _baseSelectSQL(cls, st):
         if cls not in st.typeToSelectSQLCache:
             st.typeToSelectSQLCache[cls] = ' '.join(['SELECT * FROM',
                                                      st.getTableName(cls),
                                                      'WHERE',
-                                                     st.getShortColumnName(cls.storeID),
+                                                     st.getShortColumnName(
+                                                         cls.storeID),
                                                      '= ?'
                                                      ])
         return st.typeToSelectSQLCache[cls]
@@ -889,13 +903,13 @@ class Item(Empowered, slotmachine._Strict, metaclass=MetaItem):
     def _baseInsertSQL(cls, st):
         if cls not in st.typeToInsertSQLCache:
             attrs = list(cls.getSchema())
-            qs = ', '.join((['?']*(len(attrs)+1)))
-            st.typeToInsertSQLCache[cls] = (
-                'INSERT INTO '+
-                st.getTableName(cls) + ' (' + ', '.join(
-                    [ st.getShortColumnName(cls.storeID) ] +
-                    [ st.getShortColumnName(a[1]) for a in attrs]) +
-                ') VALUES (' + qs + ')')
+            qs = ', '.join((['?'] * (len(attrs) + 1)))
+            st.typeToInsertSQLCache[cls] = \
+                ('INSERT INTO ' + st.getTableName(cls) + ' (' +
+                 ', '.join(
+                     [st.getShortColumnName(cls.storeID)] +
+                     [st.getShortColumnName(a[1]) for a in attrs]) +
+                 ') VALUES (' + qs + ')')
         return st.typeToInsertSQLCache[cls]
 
     _baseInsertSQL = classmethod(_baseInsertSQL)
@@ -905,7 +919,8 @@ class Item(Empowered, slotmachine._Strict, metaclass=MetaItem):
             st.typeToDeleteSQLCache[cls] = ' '.join(['DELETE FROM',
                                                      st.getTableName(cls),
                                                      'WHERE',
-                                                     st.getShortColumnName(cls.storeID),
+                                                     st.getShortColumnName(
+                                                         cls.storeID),
                                                      '= ? '
                                                      ])
         return st.typeToDeleteSQLCache[cls]
@@ -927,12 +942,12 @@ class Item(Empowered, slotmachine._Strict, metaclass=MetaItem):
             dirtyValues.append(dirtyValue)
         stmt = ' '.join([
             'UPDATE', self.store.getTableName(self.__class__), 'SET',
-             ', '.join(['%s = ?'] * len(dirty)) %
-              tuple(dirtyColumns),
-            'WHERE ', self.store.getShortColumnName(type(self).storeID), ' = ?'])
+            ', '.join(['%s = ?'] * len(dirty)) %
+            tuple(dirtyColumns),
+            'WHERE ', self.store.getShortColumnName(type(self).storeID),
+            ' = ?'])
         dirtyValues.append(self.storeID)
         return stmt, dirtyValues
-
 
     def getTableName(cls, store):
         """
@@ -940,15 +955,16 @@ class Item(Empowered, slotmachine._Strict, metaclass=MetaItem):
         class.
         """
         return store.getTableName(cls)
-    getTableName = classmethod(getTableName)
 
+    getTableName = classmethod(getTableName)
 
     def getTableAlias(cls, store, currentAliases):
         return None
+
     getTableAlias = classmethod(getTableAlias)
 
 
-
+@implementer(IColumn)
 class _PlaceholderColumn(_ContainableMixin, _ComparisonOperatorMuxer,
                          _MatchingOperationMuxer, _OrderingMixin):
     """
@@ -956,7 +972,6 @@ class _PlaceholderColumn(_ContainableMixin, _ComparisonOperatorMuxer,
     name built with a table alias name instead of the underlying column's real
     table name.
     """
-    implements(IColumn)
 
     def __init__(self, placeholder, column):
         self.type = placeholder
@@ -965,7 +980,6 @@ class _PlaceholderColumn(_ContainableMixin, _ComparisonOperatorMuxer,
     def __repr__(self):
         return '<Placeholder %r>' % (self.column,)
 
-
     def __get__(self, inst):
         return self.column.__get__(inst)
 
@@ -973,14 +987,11 @@ class _PlaceholderColumn(_ContainableMixin, _ComparisonOperatorMuxer,
         return self.column.fullyQualifiedName() + '.<placeholder:%s>' % (
             self.type._placeholderCount,)
 
-
     def compare(self, other, op):
         return compare(self, other, op)
 
-
     def getShortColumnName(self, store):
         return self.column.getShortColumnName(store)
-
 
     def getColumnName(self, store):
         assert self.type._placeholderTableAlias is not None, (
@@ -993,13 +1004,12 @@ class _PlaceholderColumn(_ContainableMixin, _ComparisonOperatorMuxer,
     def infilter(self, pyval, oself, store):
         return self.column.infilter(pyval, oself, store)
 
-
     def outfilter(self, dbval, oself):
         return self.column.outfilter(dbval, oself)
 
 
-
 _placeholderCount = 0
+
 
 class Placeholder(object):
     """
@@ -1023,10 +1033,11 @@ class Placeholder(object):
 
         t1 = Placeholder(Tag)
         t2 = Placeholder(Tag)
-        store.query(SomethingElse, AND(t1.taggedObject == SomethingElse.storeID,
-                                       t1.tagName == u"foo",
-                                       t2.taggedObject == SomethingElse.storeID,
-                                       t2.tagName == u"bar"))
+        store.query(
+            SomethingElse, AND(t1.taggedObject == SomethingElse.storeID,
+                               t1.tagName == u"foo",
+                               t2.taggedObject == SomethingElse.storeID,
+                               t2.tagName == u"bar"))
     """
     _placeholderTableAlias = None
 
@@ -1039,23 +1050,43 @@ class Placeholder(object):
 
         self.existingInStore = self._placeholderItemClass.existingInStore
 
+    # def __cmp__(self, other):
+    #     """
+    #     Provide a deterministic sort order between Placeholder instances.
+    #     Those instantiated first will compare as less than than instantiated
+    #     later.
+    #     """
+    #     if isinstance(other, Placeholder):
+    #         return cmp(self._placeholderCount, other._placeholderCount)
+    #     return NotImplemented
 
-    def __cmp__(self, other):
-        """
-        Provide a deterministic sort order between Placeholder instances.
-        Those instantiated first will compare as less than than instantiated
-        later.
-        """
-        if isinstance(other, Placeholder):
-            return cmp(self._placeholderCount, other._placeholderCount)
-        return NotImplemented
+    def __eq__(self, other):
+        return self._placeholderCount == other._placeholderCount
 
+    def __ne__(self, other):
+        return self._placeholderCount != other._placeholderCount
+
+    def __lt__(self, other):
+        return self._placeholderCount < other._placeholderCount
+
+    def __le__(self, other):
+        return self._placeholderCount <= other._placeholderCount
+
+    def __gt__(self, other):
+        return self._placeholderCount > other._placeholderCount
+
+    def __ge__(self, other):
+        return self._placeholderCount >= other._placeholderCount
+
+    def __hash__(self):
+        return hash((self._placeholderItemClass, self._placeholderItemClass))
 
     def __getattr__(self, name):
-        if name == 'storeID' or name in dict(self._placeholderItemClass.getSchema()):
-            return _PlaceholderColumn(self, getattr(self._placeholderItemClass, name))
+        if name == 'storeID' or \
+                name in dict(self._placeholderItemClass.getSchema()):
+            return _PlaceholderColumn(
+                self, getattr(self._placeholderItemClass, name))
         raise AttributeError(name)
-
 
     def getSchema(self):
         # In a MultipleItemQuery, the same table can appear more than
@@ -1065,24 +1096,23 @@ class Placeholder(object):
         schema = []
         for (name, atr) in self._placeholderItemClass.getSchema():
             schema.append((
-                    name,
-                    _PlaceholderColumn(
-                        self, getattr(self._placeholderItemClass, name))))
+                name,
+                _PlaceholderColumn(
+                    self, getattr(self._placeholderItemClass, name))))
         return schema
-
 
     def getTableName(self, store):
         return self._placeholderItemClass.getTableName(store)
 
-
     def getTableAlias(self, store, currentAliases):
         if self._placeholderTableAlias is None:
-            self._placeholderTableAlias = 'placeholder_' + str(len(currentAliases))
+            self._placeholderTableAlias = 'placeholder_' + str(
+                len(currentAliases))
         return self._placeholderTableAlias
 
 
+_legacyTypes = {}  # map (typeName, schemaVersion) to dummy class
 
-_legacyTypes = {}               # map (typeName, schemaVersion) to dummy class
 
 def declareLegacyItem(typeName, schemaVersion, attributes, dummyBases=()):
     """
@@ -1091,8 +1121,8 @@ def declareLegacyItem(typeName, schemaVersion, attributes, dummyBases=()):
     with upgrading.
 
     @param typeName: a string, the Axiom TypeName to have attributes for.
-    @param schemaVersion: an int, the (old) version of the schema this is a proxy
-    for.
+    @param schemaVersion: an int, the (old) version of the schema this
+    is a proxy for.
     @param attributes: a dict mapping {columnName: attr instance} describing
     the schema of C{typeName} at C{schemaVersion}.
 
@@ -1119,7 +1149,6 @@ def declareLegacyItem(typeName, schemaVersion, attributes, dummyBases=()):
     return result
 
 
-
 class _PowerupConnector(Item):
     """
     I am a connector between the store and a powerup.
@@ -1132,9 +1161,8 @@ class _PowerupConnector(Item):
     priority = integer()
 
 
-POWERUP_BEFORE = 1              # Priority for 'high' priority powerups.
-POWERUP_AFTER = -1              # Priority for 'low' priority powerups.
-
+POWERUP_BEFORE = 1  # Priority for 'high' priority powerups.
+POWERUP_AFTER = -1  # Priority for 'low' priority powerups.
 
 
 def empowerment(iface, priority=0):
@@ -1149,10 +1177,12 @@ def empowerment(iface, priority=0):
     @type priority: int
     @param priority: The priority the powerup will be installed at.
     """
+
     def _deco(cls):
-        cls.powerupInterfaces = (
-            tuple(getattr(cls, 'powerupInterfaces', ())) +
-            ((iface, priority),))
+        cls.powerupInterfaces = \
+            (tuple(getattr(cls, 'powerupInterfaces', ())) +
+             ((iface, priority),))
         implementer(iface)(cls)
         return cls
+
     return _deco

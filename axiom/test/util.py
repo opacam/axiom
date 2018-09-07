@@ -1,15 +1,15 @@
-
 """
 Helpers for writing Axiom tests.
 """
 
 from twisted.python.filepath import FilePath
-
 from twisted.trial.unittest import SkipTest
 
 from axiom.store import Store
 
 _theBaseStorePaths = {}
+
+
 def _getBaseStorePath(testCase, creator):
     if creator not in _theBaseStorePaths:
         s = creator(testCase)
@@ -36,21 +36,19 @@ def getPristineStore(testCase, creator):
     return Store(dbdir)
 
 
-
 class CommandStubMixin:
     """
     Pretend to be the parent command for a subcommand.
     """
+
     def getStore(self):
         # fake out "parent" implementation for stuff.
         return self.store
-
 
     def getSynopsis(self):
         return '<CommandStubMixin>'
 
     subCommand = property(lambda self: self.__class__.__name__)
-
 
 
 class CommandStub(object):
@@ -61,18 +59,16 @@ class CommandStub(object):
     @ivar _store: The L{Store} associated which will be supplied to the
         subcommand.
     """
+
     def __init__(self, store, subCommand):
         self._store = store
         self.subCommand = subCommand
 
-
     def getSynopsis(self):
         return "Usage: axiomatic [options]"
 
-
     def getStore(self):
         return self._store
-
 
 
 class QueryCounter:

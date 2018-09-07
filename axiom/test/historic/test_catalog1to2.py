@@ -1,6 +1,6 @@
-
 from axiom.tags import Catalog
 from axiom.test.historic.stubloader import StubbedTest
+
 
 class CatalogUpgradeTest(StubbedTest):
     def testCatalogTagNames(self):

@@ -1,12 +1,12 @@
 """
 Hypothesis strategies for generating Axiom-related data.
 """
-from epsilon.extime import Time
 from hypothesis import strategies as st
 from hypothesis.extra.datetime import datetimes
 
-from axiom.attributes import LARGEST_NEGATIVE, LARGEST_POSITIVE
-
+from axiom.attributes import LARGEST_NEGATIVE, \
+    LARGEST_POSITIVE
+from epsilon.extime import Time
 
 
 def axiomText(*a, **kw):
@@ -30,7 +30,6 @@ def textlists():
             blacklist_characters={'\x00', '\x02', '\x1f'})))
 
 
-
 def axiomIntegers(minValue=LARGEST_NEGATIVE, maxValue=LARGEST_POSITIVE):
     """
     Strategy for generating Axiom-compatible integers.
@@ -46,13 +45,11 @@ def axiomIntegers(minValue=LARGEST_NEGATIVE, maxValue=LARGEST_POSITIVE):
     return st.integers(min_value=minValue, max_value=maxValue)
 
 
-
 def timestamps(*a, **kw):
     """
     Strategy for generating L{epsilon.extime.Time} objects.
     """
     return st.builds(Time.fromDatetime, datetimes(timezones=[], *a, **kw))
-
 
 
 def fixedDecimals(precision, minValue=None, maxValue=None):
@@ -80,7 +77,6 @@ def fixedDecimals(precision, minValue=None, maxValue=None):
         maxValue = int(maxValue / precision)
     return st.integers(min_value=minValue, max_value=maxValue).map(
         lambda v: v * precision)
-
 
 
 __all__ = [

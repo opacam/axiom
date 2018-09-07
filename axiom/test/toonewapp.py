@@ -1,15 +1,18 @@
 # -*- test-case-name: axiom.test.test_upgrading.SchemaUpgradeTest.testUpgradeWithMissingVersion -*-
 
 
+from axiom.attributes import text, integer, reference, \
+    inmemory
 from axiom.item import Item
-from axiom.attributes import text, integer, reference, inmemory
-
 from axiom.upgrade import registerUpgrader
+
 
 class ActivateHelper:
     activated = 0
+
     def activate(self):
         self.activated += 1
+
 
 class Adventurer(ActivateHelper, Item):
     typeName = 'test_app_player'
@@ -17,6 +20,7 @@ class Adventurer(ActivateHelper, Item):
 
     name = text()
     activated = inmemory()
+
 
 class InventoryEntry(ActivateHelper, Item):
     typeName = 'test_app_inv'
@@ -26,6 +30,7 @@ class InventoryEntry(ActivateHelper, Item):
     owned = reference()
 
     activated = inmemory()
+
 
 class Sword(ActivateHelper, Item):
     typeName = 'test_app_sword'
@@ -39,6 +44,7 @@ class Sword(ActivateHelper, Item):
         def get(self):
             return self.store.findUnique(InventoryEntry,
                                          InventoryEntry.owned == self).owner
+
         return get,
 
     owner = property(*owner())

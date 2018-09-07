@@ -1,17 +1,15 @@
-
 from twisted.trial import unittest
 
+from axiom.attributes import text
+from axiom.item import Item
 from axiom.store import Store
 from axiom.tags import Catalog
 
-from axiom.item import Item
-from axiom.attributes import text
 
 class Gizmo(Item):
     typeName = 'test_gizmo'
     schemaVersion = 1
     name = text()
-
 
 
 class TagTestCase(unittest.TestCase):
@@ -28,9 +26,9 @@ class TagTestCase(unittest.TestCase):
         c.tag(g1, 'multi')
 
         self.assertEqual(list(c.tagsOf(g1)),
-                          ['single', 'multi'])
+                         ['single', 'multi'])
         self.assertEqual(list(c.tagsOf(g2)),
-                          ['multi'])
+                         ['multi'])
 
         self.assertEqual(list(c.objectsIn('single')), [g1])
         self.assertEqual(list(c.objectsIn('multi')), [g1, g2])

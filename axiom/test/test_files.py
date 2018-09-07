@@ -1,13 +1,12 @@
-
 import os
 
-from twisted.trial import unittest
 from twisted.python import filepath
+from twisted.trial import unittest
 
+from axiom.attributes import path
+from axiom.item import Item
 from axiom.store import Store
 
-from axiom.item import Item
-from axiom.attributes import path
 
 class PathTesterItem(Item):
     schemaVersion = 1
@@ -17,22 +16,22 @@ class PathTesterItem(Item):
     abspath = path(relative=False)
 
 
-
 class InStoreFilesTest(unittest.TestCase):
     """
     Tests for files managed by the store.
     """
+
     def _testFile(self, s):
         """
         Shared part of file creation tests.
         """
         f = s.newFile('test', 'whatever.txt')
         f.write('crap')
+
         def cb(fpath):
             self.assertEqual(fpath.open().read(), 'crap')
 
         return f.close().addCallback(cb)
-
 
     def test_createFile(self):
         """
@@ -40,7 +39,6 @@ class InStoreFilesTest(unittest.TestCase):
         """
         s = Store(filepath.FilePath(self.mktemp()))
         return self._testFile(s)
-
 
     def test_createFileInMemory(self):
         """
@@ -56,13 +54,13 @@ class InStoreFilesTest(unittest.TestCase):
         s = Store(filesdir=self.mktemp())
         return self._testFile(s)
 
-
     def test_noFiledir(self):
         """
         File creation should raise an error if the store has no file directory.
         """
         s = Store()
         self.assertRaises(RuntimeError, s.newFile, "test", "whatever.txt")
+
 
 class PathAttributesTest(unittest.TestCase):
     def testRelocatingPaths(self):
@@ -84,6 +82,6 @@ class PathAttributesTest(unittest.TestCase):
             pti = list(s2.query(PathTesterItem))[0]
 
             self.assertEqual(pti.relpath.getContent(),
-                              TEST_STR)
+                             TEST_STR)
 
         return rel.close().addCallback(cb)

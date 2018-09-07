@@ -5,10 +5,9 @@ Database creator for the test for the upgrade of Scheduler from version 1 to
 version 2.
 """
 
-from axiom.test.historic.stubloader import saveStub
-
-from axiom.scheduler import Scheduler
 from axiom.dependency import installOn
+from axiom.scheduler import Scheduler
+from axiom.test.historic.stubloader import saveStub
 
 
 def createDatabase(store):

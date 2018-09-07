@@ -1,13 +1,13 @@
-
 import random
 
 from twisted.trial.unittest import TestCase
 
-from axiom.store import Store
-from axiom.item import Item
 from axiom.attributes import integer
+from axiom.item import Item
+from axiom.queryutil import overlapping, \
+    AttributeTuple
+from axiom.store import Store
 
-from axiom.queryutil import overlapping, AttributeTuple
 
 class Segment(Item):
     typeName = 'test_overlap_segment'
@@ -19,6 +19,7 @@ class Segment(Item):
     def __repr__(self):
         return 'Segment<%d,%d>' % (self.x, self.y)
 
+
 class ABC(Item):
     typeName = 'test_tuple_queries'
     schemaVersion = 1
@@ -26,6 +27,7 @@ class ABC(Item):
     a = integer(allowNone=False)
     b = integer(allowNone=False)
     c = integer(allowNone=False)
+
 
 class TestQueryUtilities(TestCase):
 
@@ -65,7 +67,7 @@ class TestQueryUtilities(TestCase):
                                      A, B),
                          sort=Segment.storeID.asc)),
             [AB, CD, EF, KL, AL, CB, CA, BL],
-            )
+        )
 
     ('(((A > 2)) '
      'OR ((A == 2) AND (B > 3)) '
@@ -143,4 +145,3 @@ class TestQueryUtilities(TestCase):
             self.assertEqual(
                 L[:L.index(comparee) + 1],
                 [(o.a, o.b, o.c) for o in qobj])
-

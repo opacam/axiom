@@ -1,5 +1,6 @@
 from axiom import item, attributes
 
+
 class Bucket(item.Item):
     typeName = 'bucket'
     schemaVersion = 1
@@ -21,19 +22,23 @@ class FoodItem(item.Item):
     extra = attributes.reference()
     deliciousness = attributes.integer(indexed=True)
 
+
 class Chicken(item.Item):
     typeName = 'chicken'
     schemaVersion = 1
 
     epistemologicalBasisForCrossingTheRoad = attributes.text()
+
     def what(self):
         print('chicken!')
+
 
 class Biscuit(item.Item):
     typeName = 'biscuit'
     schemaVersion = 1
 
     fluffiness = attributes.integer()
+
     def what(self):
         print('biscuits!')
 

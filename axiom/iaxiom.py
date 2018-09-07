@@ -1,4 +1,3 @@
-
 from zope.interface import Interface, Attribute
 
 
@@ -65,7 +64,6 @@ class IAxiomaticCommand(Interface):
     """)
 
 
-
 class IBeneficiary(Interface):
     """
     Interface to adapt to when looking for an appropriate application-level
@@ -73,10 +71,12 @@ class IBeneficiary(Interface):
     """
 
     def powerUp(implementor, interface):
-        """ Install a powerup on this object.  There is not necessarily any inverse
-        powerupsFor on a beneficiary, although there may be; installations may
-        be forwarded to a different implementation object, or deferred.
+        """ Install a powerup on this object.  There is not necessarily any
+        inverse powerupsFor on a beneficiary, although there may be;
+        installations may be forwarded to a different implementation object,
+        or deferred.
         """
+
 
 class IPowerupIndirector(Interface):
     """
@@ -95,7 +95,6 @@ class IPowerupIndirector(Interface):
         """
 
 
-
 class IScheduler(Interface):
     """
     An interface for scheduling tasks.  Quite often the store will be adaptable
@@ -103,6 +102,7 @@ class IScheduler(Interface):
     assume that it is if your application needs to schedule timed events or
     queue tasks.
     """
+
     def schedule(runnable, when):
         """
         @param runnable: any Item with a 'run' method.
@@ -111,7 +111,6 @@ class IScheduler(Interface):
         method will be called.  See extime.Time's documentation for more
         details.
         """
-
 
 
 class IQuery(Interface):
@@ -137,7 +136,6 @@ class IQuery(Interface):
         The query is performed whenever this is called.
         """
 
-
     def count():
         """
         Return the number of results in this query.
@@ -146,7 +144,6 @@ class IQuery(Interface):
         query.  It is therefore very slow and should generally be considered
         discouraged.  Call with caution!
         """
-
 
     def cloneQuery(limit):
         """
@@ -165,17 +162,16 @@ class IQuery(Interface):
         """
 
 
-
 class IColumn(Interface):
     """
     An object that represents a column in the database.
     """
+
     def getShortColumnName(store):
         """
         @rtype: C{str}
         @return: Just the name of this column.
         """
-
 
     def getColumnName(store):
         """
@@ -201,24 +197,23 @@ class IColumn(Interface):
         @param row: an item that has this column.
         @type row: L{axiom.item.Item}
 
-        @return: The value of the column described by this object, for the given
-        row.
+        @return: The value of the column described by this object,
+        for the given row.
 
         @rtype: depends on the underlying type of the column.
         """
-
 
 
 class IOrdering(Interface):
     """
     An object suitable for passing to the 'sort' argument of a query method.
     """
+
     def orderColumns():
         """
         Return a list of two-tuples of IColumn providers and either C{'ASC'} or
         C{'DESC'} defining this ordering.
         """
-
 
 
 class IComparison(Interface):
@@ -227,25 +222,23 @@ class IComparison(Interface):
     apply to certain items in a store.  Passed as an argument to
     attributes.AND, .OR, and Store.query(...)
     """
+
     def getInvolvedTables():
         """
         Return a sequence of L{Item} subclasses which are referenced by this
         comparison.  A class may appear at most once.
         """
 
-
     def getQuery(store):
         """
         Return an SQL string with ?-style bind parameter syntax thingies.
         """
-
 
     def getArgs(store):
         """
         Return a sequence of arguments suitable for use to satisfy the bind
         parameters in the result of L{getQuery}.
         """
-
 
 
 class IReliableListener(Interface):
@@ -280,6 +273,8 @@ class IReliableListener(Interface):
 
 
 LOCAL, REMOTE = list(range(2))
+
+
 class IBatchProcessor(Interface):
     def addReliableListener(listener, style=LOCAL):
         """
@@ -295,12 +290,10 @@ class IBatchProcessor(Interface):
         for processing.
         """
 
-
     def removeReliableListener(listener):
         """
         Remove a previously added listener.
         """
-
 
     def getReliableListeners():
         """
@@ -309,18 +302,17 @@ class IBatchProcessor(Interface):
         """
 
 
-
 class IBatchService(Interface):
     """
     Object which allows minimal communication with L{IReliableListener}
     providers which are running remotely (that is, with the L{REMOTE} style).
     """
+
     def start():
         """
-        Start the remote batch process if it has not yet been started, otherwise
-        do nothing.
+        Start the remote batch process if it has not yet been started,
+        otherwise do nothing.
         """
-
 
     def suspend(storeID):
         """
@@ -331,7 +323,6 @@ class IBatchService(Interface):
         @return: A Deferred which fires when the listener has been suspended.
         """
 
-
     def resume(storeID):
         """
         @type storeID: C{int}
@@ -340,7 +331,6 @@ class IBatchService(Interface):
         @rtype: L{twisted.internet.defer.Deferred}
         @return: A Deferred which fires when the listener has been resumed.
         """
-
 
 
 class IVersion(Interface):

@@ -1,9 +1,10 @@
 # -*- test-case-name: axiom.test.historic.test_textlist -*-
 
 
-from axiom.item import Item
 from axiom.attributes import textlist
+from axiom.item import Item
 from axiom.test.historic.stubloader import saveStub
+
 
 class Dummy(Item):
     typeName = 'axiom_textlist_dummy'
@@ -12,13 +13,11 @@ class Dummy(Item):
     attribute = textlist(doc="a textlist")
 
 
-
 def createDatabase(s):
     """
     Populate the given Store with some Dummy items.
     """
     Dummy(store=s, attribute=['foo', 'bar'])
-
 
 
 if __name__ == '__main__':
